@@ -4,6 +4,7 @@ import { Player } from '../entities/Player.ts'
 import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
 import { COMBAT, TEST_ENEMIES } from '../config/combat.ts'
 import { CAMP, Grenzland, LANDMARKS, LIFT, WORLD } from '../world/Grenzland.ts'
+import { StatusBar } from '../ui/StatusBar.ts'
 
 const SAVE_KEY = 'elements.grenzland.v1'
 
@@ -11,12 +12,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Player
   private elements!: ElementController
   private enemies: FlyingPlushEnemy[] = []
-  private healthText!: Phaser.GameObjects.Text
-  private healthBar!: Phaser.GameObjects.Graphics
-  private enemyText!: Phaser.GameObjects.Text
-  private shownHealth = -1
-  private regionText!: Phaser.GameObjects.Text
-  private progressText!: Phaser.GameObjects.Text
+  /** Scharfe HTML-Statusleiste über dem Canvas (Leben, Ort, Gegner, Grenzsteine). */
+  readonly statusBar = StatusBar.get()
   private hintText!: Phaser.GameObjects.Text
   private map!: Phaser.GameObjects.Container
   private mapPlayer!: Phaser.GameObjects.Arc
@@ -36,7 +33,6 @@ export class GameScene extends Phaser.Scene {
     this.found = new Set()
     this.saveAvailable = true
     this.toastUntil = 0
-    this.shownHealth = -1
     this.loadProgress()
     new Grenzland(this)
     this.player = new Player(this, CAMP.x, CAMP.y)
@@ -78,7 +74,9 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) enemy.render()
     this.refreshHealth()
     const { x, y } = this.player.body.position
-    this.regionText.setText(y > 1080 ? '02 / DIE KRISTALLGROTTE' : y < 620 ? '03 / DIE HIMMELSINSELN' : '01 / DAS GRENZLAND')
+    if (y > 1080) this.statusBar.setRegion(2, 'Die Kristallgrotte')
+    else if (y < 620) this.statusBar.setRegion(3, 'Die Himmelsinseln')
+    else this.statusBar.setRegion(1, 'Das Grenzland')
     if (Phaser.Input.Keyboard.JustDown(this.mapKey)) this.map.setVisible(!this.map.visible)
     this.mapPlayer.setPosition(190 + x / WORLD.width * 580, 120 + y / WORLD.height * 240)
     if (Phaser.Input.Keyboard.JustDown(this.recall) || y > WORLD.height - 70) {
@@ -125,13 +123,8 @@ export class GameScene extends Phaser.Scene {
 
   private refreshHealth(): void {
     const { current, max } = this.player.health
-    if (current !== this.shownHealth) {
-      this.shownHealth = current
-      this.healthText.setText(`LEBEN  ${current} / ${max}`)
-      this.healthBar.clear().fillStyle(0x263d46).fillRect(310, 42, 160, 7)
-      this.healthBar.fillStyle(current <= 30 ? 0xe78b86 : 0x9dceaa).fillRect(310, 42, 160 * current / max, 7)
-    }
-    this.enemyText.setText(`PLÜSCHGEGNER ${this.enemies.filter((enemy) => enemy.health.alive).length} / ${TEST_ENEMIES.length}`)
+    this.statusBar.setHealth(current, max)
+    this.statusBar.setEnemies(this.enemies.filter((enemy) => enemy.health.alive).length, TEST_ENEMIES.length)
   }
 
   private travel(x: number, y: number): void {
@@ -143,21 +136,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createHud(): void {
+    // Die obere Leiste ist HTML (StatusBar); auf dem Canvas bleibt nur die untere Elementleiste.
     const panel = this.add.graphics().setScrollFactor(0).setDepth(99)
-    panel.fillStyle(0x0c1c26, 0.93).fillRect(0, 0, 960, 72)
-    panel.fillStyle(0x9ab39a, 0.3).fillRect(24, 71, 912, 1)
     panel.fillStyle(0x0c1c26, 0.95).fillRect(0, 480, 960, 60)
     const text = (x: number, y: number, value: string, size: number, color: string) => this.add.text(x, y, value, {
       fontFamily: 'monospace', fontSize: `${size}px`, color,
     }).setScrollFactor(0).setDepth(100)
-    text(26, 17, 'E L E M E N T S', 20, '#e8dfbd')
-    this.healthText = text(310, 20, '', 12, '#e1e9ce')
-    this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(100)
-    this.enemyText = text(500, 21, '', 10, '#d7bfdc')
-    text(500, 43, 'T · TEST NEU STARTEN', 9, '#9bb7af')
-    this.regionText = text(28, 46, '', 10, '#9bb7af')
-    this.progressText = text(930, 20, '', 12, '#d2dfc8').setOrigin(1, 0)
-    text(930, 43, 'ERKUNDUNGS-PROTOTYP · TAB KARTE', 10, '#829f9e').setOrigin(1, 0)
     this.hintText = text(480, 463, '', 10, '#e0d5b4').setOrigin(0.5, 1)
     this.hintText.setBackgroundColor('#10232c').setPadding(10, 7)
     text(500, 505, 'MAUSRAD: ELEMENT', 10, '#9bb7af')
@@ -208,7 +192,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshProgress(): void {
-    this.progressText.setText(`GRENZSTEINE  ${this.found.size} / 3${this.saveAvailable ? '  ·  lokal gespeichert' : '  ·  nur diese Sitzung'}`)
+    this.statusBar.setStones(this.found.size, LANDMARKS.length, this.saveAvailable)
   }
 
   private toast(message: string, duration = 3500): void {

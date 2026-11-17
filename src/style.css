@@ -6,11 +6,174 @@ body {
   overflow: hidden;
 }
 
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color: #e1e9ce;
+}
+
 #app {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100vw;
-  height: 100vh;
 }
 
 canvas {
   image-rendering: pixelated;
+}
+
+/* Statusleiste: echtes HTML, dadurch scharf in jeder Fenstergröße. */
+#statusbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 46px;
+  padding: 0 20px;
+  box-sizing: border-box;
+  background: linear-gradient(#0f2230, #0b1a24);
+  border-bottom: 1px solid #2a4a52;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#statusbar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sb-brand {
+  margin-right: 8px;
+}
+
+.sb-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: #e8dfbd;
+}
+
+.sb-sub {
+  font-size: 11px;
+  color: #829f9e;
+  letter-spacing: 0.06em;
+}
+
+.sb-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #9bb7af;
+}
+
+.sb-region-index {
+  color: #9bb7af;
+}
+
+.sb-region-name {
+  font-weight: 700;
+  color: #f0eacb;
+}
+
+.sb-health {
+  align-items: center;
+}
+
+.sb-health-bar {
+  display: inline-block;
+  width: 160px;
+  height: 8px;
+  background: #263d46;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sb-health-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #9dceaa;
+  transition: width 160ms ease-out, background-color 160ms;
+}
+
+.sb-health-fill.is-low {
+  background: #e78b86;
+}
+
+.sb-health-value {
+  min-width: 7ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-enemies-value {
+  color: #d7bfdc;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-stones-value {
+  color: #d2dfc8;
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-stones-note {
+  font-size: 11px;
+  color: #829f9e;
+}
+
+.sb-keys {
+  margin-left: auto;
+  font-size: 11px;
+  color: #829f9e;
+}
+
+/* Nebenangaben weichen nach und nach, damit Leben und Ort nie abgeschnitten werden. */
+@media (max-width: 1500px) {
+  .sb-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 1350px) {
+  .sb-stones-note {
+    display: none;
+  }
+}
+
+/* `#statusbar >` nötig: die Grundregel `#statusbar > div` hat ID-Spezifität. */
+@media (max-width: 1250px) {
+  #statusbar > .sb-keys {
+    display: none;
+  }
+}
+
+@media (max-width: 1000px) {
+  #statusbar {
+    gap: 16px;
+    font-size: 12px;
+  }
+
+  .sb-health-bar {
+    width: 110px;
+  }
+
+  #statusbar > .sb-enemies,
+  #statusbar > .sb-stones {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .sb-title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+  }
+
+  .sb-health-bar {
+    width: 70px;
+  }
 }
