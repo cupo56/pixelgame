@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 import type { Substance, SubstanceKind } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
+import { REACTIONS as R } from '../config/reactions.ts'
 import { quenchFire } from './thermo.ts'
 
 export interface ReactionContext {
@@ -24,8 +25,17 @@ const noop: ReactionHandler = () => {}
 
 /** Wasser entzieht dem Feuer Verdampfungswärme und verdampft dabei; Q ≤ 0 löscht ohne Druckwelle. */
 const fireMeetsWater: ReactionHandler = (fire, water, ctx) => {
-  const { fire: fireMaterial, water: waterMaterial } = ctx.system.materials
+  const { fire: fireMaterial, water: waterMaterial, puddle } = ctx.system.materials
   if (!fireMaterial || !waterMaterial) return
+  if (water.body.label === 'puddle') {
+    // Pfütze: nur so viel verdampft, wie das Feuer an Wärme hergibt; der Rest bleibt liegen.
+    const kg = Math.min(water.massKg, fire.heatJ / R.waterLatentJPerKg)
+    puddle?.evaporate(water, kg)
+    const result = quenchFire(fire.heatJ, kg)
+    fire.heatJ = result.heatJ
+    if (result.extinguished) fireMaterial.quench(fire)
+    return
+  }
   const result = quenchFire(fire.heatJ, water.massKg)
   fire.heatJ = result.heatJ
   waterMaterial.evaporate(water)

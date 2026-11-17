@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { REACTIONS as R } from '../config/reactions.ts'
 import {
   approachAmbient, coolWater, fireChargeFraction, fireHeatForCharge, glowFraction, grainPlan, heatWater,
-  metalEdgeM, puddleWidthPx, quenchFire, sandWettingThresholdKg, solidHeatingK,
+  mergeTarget, metalEdgeM, puddleWidthPx, quenchFire, sandWettingThresholdKg, solidHeatingK,
 } from './thermo.ts'
 
 describe('Feuer und Wasser', () => {
@@ -101,5 +101,14 @@ describe('Erde, Sand, Metall', () => {
     expect(puddleWidthPx(R.dropletMassKg)).toBe(R.puddleMinWidthPx)
     expect(puddleWidthPx(1000)).toBe(R.puddleMaxWidthPx)
     expect(puddleWidthPx(R.dropletMassKg * 4)).toBe(R.puddleMinWidthPx * 2)
+  })
+})
+
+describe('Pfützen', () => {
+  it('mergeTarget wählt die nächste Pfütze innerhalb des Abstands, sonst keine', () => {
+    const puddles = [{ x: 0, y: 0, id: 'a' }, { x: 15, y: 0, id: 'b' }, { x: 100, y: 0, id: 'c' }]
+    expect(mergeTarget(puddles, 12, 0, R.puddleMergePx)?.id).toBe('b')
+    expect(mergeTarget(puddles, 50, 0, R.puddleMergePx)).toBeUndefined()
+    expect(mergeTarget([], 0, 0, R.puddleMergePx)).toBeUndefined()
   })
 })

@@ -66,3 +66,16 @@ export const glowFraction = (tempC: number, glowC: number, whiteC: number): numb
 /** Pfützenbreite wächst mit der Wurzel der Masse, gedeckelt. */
 export const puddleWidthPx = (massKg: number): number =>
   Math.min(R.puddleMaxWidthPx, Math.max(R.puddleMinWidthPx, R.puddleMinWidthPx * Math.sqrt(massKg / R.dropletMassKg)))
+
+/** Nächste Pfütze innerhalb des Zusammenführungsabstands. */
+export const mergeTarget = <T extends { x: number; y: number }>(
+  puddles: readonly T[], x: number, y: number, mergePx: number,
+): T | undefined => {
+  let best: T | undefined
+  let bestDistance = mergePx
+  for (const puddle of puddles) {
+    const distance = Math.hypot(puddle.x - x, puddle.y - y)
+    if (distance <= bestDistance) { best = puddle; bestDistance = distance }
+  }
+  return best
+}

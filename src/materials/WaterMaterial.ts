@@ -8,11 +8,14 @@ import { burst } from '../effects/particles.ts'
 import { steamCloud } from './SteamEffect.ts'
 import { kindOfLabel, type Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
+import type { Puddle } from './Puddle.ts'
 
 const DROPLET_RADIUS_M = 0.08
 const LIFETIME_MS = 4000
 const SPLASH_MIN_SPEED_MS = 3
 const SPLASH_CHANCE = 0.35
+/** Unterhalb dieser Geschwindigkeit gilt ein Tropfen am Boden als ruhend. */
+const RESTING_SPEED_MS = 0.2
 const WATER_COLOR = 0x3fa7ff
 export const WATER_COLORS = [0xbfe6ff, 0x3fa7ff, 0x1b6fc2]
 
@@ -20,19 +23,26 @@ export interface Droplet extends Substance {
   readonly kind: 'water'
   readonly shape: Phaser.GameObjects.Arc
   readonly expiry: Phaser.Time.TimerEvent
+  /** Zeitpunkt des letzten Geländekontakts (ms), für die Ruheerkennung. */
+  groundedAt: number
 }
 
-/** Wassertropfen: echte Körper mit Masse, Temperatur und begrenzter Lebenszeit. */
+/** Wassertropfen: echte Körper mit Masse, Temperatur und begrenzter Lebenszeit; ruhend werden sie zur Pfütze. */
 export class WaterMaterial {
   private readonly scene: Phaser.Scene
   private readonly system: ReactionSystem
+  private readonly puddles: Puddle
   private readonly droplets = new Set<Droplet>()
+  private readonly offStep: () => void
 
-  constructor(scene: Phaser.Scene, system: ReactionSystem) {
+  constructor(scene: Phaser.Scene, system: ReactionSystem, puddles: Puddle) {
     this.scene = scene
     this.system = system
+    this.puddles = puddles
     system.attach('water', this)
+    this.offStep = system.onStep(this.step.bind(this))
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
+    scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onContact, this)
   }
 
   spawnDroplet(x: number, y: number, angle: number, speedMs: number): Substance | undefined {
@@ -41,17 +51,21 @@ export class WaterMaterial {
     const body = this.scene.matter.add.circle(x, y, radiusPx, {
       label: 'water',
       mass: R.dropletMassKg,
-      friction: 0,
+      // Wasser rollt nicht meterweit: Reibung lässt Tropfen am Boden liegen bleiben.
+      friction: 0.4,
+      frictionStatic: 0.5,
       restitution: 0.05,
       collisionFilter: { category: COLLISION_CATEGORY.water, mask: WATER_MASK, group: WATER_GROUP },
     })
+    // Ohne Rotation rutscht der Tropfen und wird von der Reibung gestoppt, statt endlos zu rollen.
+    this.scene.matter.body.setInertia(body, Infinity)
     const shape = this.scene.add.circle(x, y, radiusPx, WATER_COLOR).setDepth(6)
     this.scene.matter.add.gameObject(shape, body)
     const speed = metersPerSecondToMatter(speedMs)
     this.scene.matter.body.setVelocity(body, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed })
 
     const droplet: Droplet = {
-      kind: 'water', body, shape,
+      kind: 'water', body, shape, groundedAt: -Infinity,
       expiry: this.scene.time.delayedCall(LIFETIME_MS, () => this.system.remove(droplet)),
       temperatureC: R.waterStartC, massKg: R.dropletMassKg, wetnessKg: 0, heatJ: 0, restingMs: 0,
       createdAt: this.scene.time.now,
@@ -78,19 +92,49 @@ export class WaterMaterial {
   }
 
   destroy(): void {
+    this.offStep()
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
+    this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onContact, this)
     for (const droplet of [...this.droplets]) this.system.remove(droplet)
   }
 
-  private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
+  /** Ruhende Tropfen am Boden sammeln sich nach puddleRestMs zur Pfütze. */
+  private step(dtS: number, now: number): void {
+    for (const droplet of [...this.droplets]) {
+      const grounded = now - droplet.groundedAt <= 50
+      const slow = matterToMetersPerSecond(droplet.body.speed) < RESTING_SPEED_MS
+      droplet.restingMs = grounded && slow ? droplet.restingMs + dtS * 1000 : 0
+      if (droplet.restingMs < R.puddleRestMs) continue
+      const bottom = droplet.body.bounds.max.y
+      this.puddles.absorb(droplet.body.position.x, bottom, droplet.massKg, droplet.temperatureC)
+      this.system.remove(droplet)
+    }
+  }
+
+  private onContact(event: Phaser.Physics.Matter.Events.CollisionActiveEvent): void {
+    const now = this.scene.time.now
     for (const pair of event.pairs) {
-      this.splash(pair.bodyA.parent, pair.bodyB.parent)
-      this.splash(pair.bodyB.parent, pair.bodyA.parent)
+      this.touchGround(pair.bodyA.parent, pair.bodyB.parent, now)
+      this.touchGround(pair.bodyB.parent, pair.bodyA.parent, now)
+    }
+  }
+
+  private touchGround(candidate: MatterJS.BodyType, other: MatterJS.BodyType, now: number): void {
+    if (!other.isStatic || other.isSensor) return
+    const droplet = this.system.registry.get(candidate)
+    if (droplet?.kind === 'water' && this.droplets.has(droplet as Droplet)) (droplet as Droplet).groundedAt = now
+  }
+
+  private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
+    const now = this.scene.time.now
+    for (const pair of event.pairs) {
+      this.splash(pair.bodyA.parent, pair.bodyB.parent, now)
+      this.splash(pair.bodyB.parent, pair.bodyA.parent, now)
     }
   }
 
   /** Tropfen gibt beim Aufprall auf Gegner seinen Impuls ab und zerspritzt; auf Gelände bleibt er liegen. */
-  private splash(candidate: MatterJS.BodyType, other: MatterJS.BodyType): void {
+  private splash(candidate: MatterJS.BodyType, other: MatterJS.BodyType, now: number): void {
     const droplet = this.system.registry.get(candidate)
     if (droplet?.kind !== 'water' || !this.droplets.has(droplet as Droplet) || other.isSensor) return
     // Stoffpaare regelt die Reaktionstabelle (Label greift auch nach Abmeldung im selben Schritt).
@@ -99,7 +143,10 @@ export class WaterMaterial {
     if (speedMs >= SPLASH_MIN_SPEED_MS && Math.random() < SPLASH_CHANCE) {
       burst(this.scene, candidate.position.x, candidate.position.y, WATER_COLORS, 3, speedMs * 8)
     }
-    if (other.isStatic) return
+    if (other.isStatic) {
+      (droplet as Droplet).groundedAt = now
+      return
+    }
     damageEnemy(other, COMBAT.waterDamage)
     this.system.remove(droplet)
   }
