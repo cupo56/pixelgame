@@ -78,7 +78,29 @@ Der Tornado entsteht beim Loslassen **auf echtem Boden in der Nähe des Spielers
 
 Vorhandene **Erdblöcke kreisen mit dem wandernden Tornado mit**. Die Windführung verändert ihre Geschwindigkeit, nicht ihre Position oder Masse: Schwere Blöcke reagieren träger und rotieren langsamer, Kollisionen mit Gelände und Gegnern bleiben wirksam. Beim Auflösen fliegen die Blöcke mit ihrem Schwung weiter und fallen wieder unter Schwerkraft; ihre Lebensdauer beträgt anschließend erneut zehn Sekunden. Der Tornado selbst verursacht pro Gegner einmalig **8 bis 18 Schaden**, reißt ihn kurz in seine Umlaufbahn und schleudert ihn weiter. Mitgeführte Erdblöcke behalten ihren eigenen Trefferschaden. Elementwechsel bricht nur die Aufladung ab; ein bereits gestarteter Tornado läuft weiter. Fokusverlust, Rückruf und Neustart räumen auch aktive Tornados auf und lösen ihre Bindung zu den Blöcken.
 
+## Elementreaktionen
+
+Die Elemente sind echte Stoffe mit Temperatur, Masse und Wärmeinhalt. Ein zentrales Reaktionssystem (`src/materials/`) entscheidet bei jeder Berührung; die Stellwerte stehen in SI-Einheiten in `src/config/reactions.ts`.
+
+| Reaktion | Was passiert |
+| --- | --- |
+| Wasser trifft Feuer | Jeder Tropfen entzieht dem Feuerball seine Verdampfungswärme und verdampft dabei. Ein kleiner Feuerball erlischt am ersten Tropfen, ein voll geladener braucht etwa 13 Tropfen oder einen Peitschenschlag. Erloschenes Feuer löst keine Druckwelle aus. |
+| Feuer trifft Pfütze oder Eis | Pfützen verdampfen anteilig, Eis schmilzt zu Wasser. |
+| Wasser am Boden | Ruhende Tropfen sammeln sich zu Pfützen, die nach 12 s verdunsten. |
+| Luft trifft Wasser | Windstoß und Wirbelsturm tragen Tropfen mit und kühlen sie; bei 0 °C werden sie zu Eisscherben, Pfützen zu glatten Eisflächen. Auf Eis rutscht auch die Figur. Scherben zerspringen bei hartem Aufprall und schmelzen nach einigen Sekunden. |
+| Wasser trifft Erde | Der Block saugt sich voll (dunkelt ab) und zerfällt ab einer von der Oberfläche abhängigen Wassermenge zu Sand: ein kleiner Block nach etwa 20 Tropfen. |
+| Sand | Körner bilden Haufen, bremsen Gegner, fliegen im Wind als Sandwolke und versinken nach 12 s Ruhe. |
+| Feuer trifft Sand | Die Explosion erhitzt die Körner; geschmolzene Körner verschmelzen zu einem Metallblock (Masse bleibt erhalten, Volumen folgt der Metalldichte). Ein geladener Feuerball reicht für einen kleinen Haufen. |
+| Metall | Dauerhaft (höchstens sechs Blöcke, der älteste versinkt), glüht nach Feuer und verbrennt Gegner bei Berührung. Feuerbälle prallen daran ab, Wasser verdampft auf heißem Metall und kühlt es. Metall wird später ein eigenes Element. |
+| Feuer trifft Erde | Der Block glüht und verbrennt Gegner, bis er abgekühlt ist. |
+| Luft trifft Feuer | Der Windstoß beschleunigt den Feuerball und nährt ihn. |
+| Luft trifft Erde | Wie bisher: Schub, Auftrieb und Mitnahme im Wirbelsturm. |
+
+Der einzige nicht-physikalische Wert ist `fireSolidCoupling` (Feuer wirkt auf Festkörper als anhaltende Flamme, nicht als einmaliges Energiepaket); alle anderen Größen (Verdampfungswärme, Dichten, Schwellen) sind real. Die reine Rechenlogik ist mit Vitest geprüft: `npm test`.
+
 ## Browserprüfung
+
+`scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab.
 
 `scripts/check-grenzland.py` verwendet eine vorhandene Python-Playwright-Installation mit Chromium. Der Test prüft den tatsächlichen Fußweg zur Grotte, beide Aufzüge, den Aufwind, einen Inselsprung ohne Luft, die vier Angriffe, Karte, Rückruf und Speicherung nach dem Neuladen. Screenshots landen im ignorierten Ordner `artifacts`.
 
