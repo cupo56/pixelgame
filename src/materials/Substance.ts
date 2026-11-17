@@ -20,6 +20,15 @@ export interface Substance {
 
 type RemoveListener = (substance: Substance) => void
 
+/** Körper-Labels der Stoffe; greift auch noch, wenn ein Stoff im selben Schritt bereits abgemeldet wurde. */
+const KIND_BY_LABEL: Readonly<Record<string, SubstanceKind>> = {
+  fireball: 'fire', water: 'water', puddle: 'water', ice: 'ice', 'ice-sheet': 'ice',
+  rock: 'earth', sand: 'sand', metal: 'metal',
+}
+
+export const kindOfLabel = (label: string | undefined): SubstanceKind | undefined =>
+  label === undefined ? undefined : KIND_BY_LABEL[label]
+
 /** Nachschlagewerk aller Stoffe: Körper → Stoff, plus Zählung und Verdrängung. */
 export class SubstanceRegistry {
   private readonly byBody = new WeakMap<MatterJS.BodyType, Substance>()

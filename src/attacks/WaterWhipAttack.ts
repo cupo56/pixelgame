@@ -4,6 +4,8 @@ import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, freezeEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import { REACTIONS as R } from '../config/reactions.ts'
+import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const CHARGE_MS = 2000
 const EXTEND_MS = 240
@@ -42,17 +44,17 @@ export class WaterWhipAttack {
   readonly cooldownMs = 650
   private readonly scene: Phaser.Scene
   private readonly getPose: () => WaterPose
-  private readonly extinguish: (body: MatterJS.BodyType) => boolean
+  private readonly system: ReactionSystem
   private readonly back: Phaser.GameObjects.Graphics
   private readonly front: Phaser.GameObjects.Graphics
   private readonly label: Phaser.GameObjects.Text
   private charging?: Charge
   private readonly whips = new Set<Whip>()
 
-  constructor(scene: Phaser.Scene, getPose: () => WaterPose, extinguish: (body: MatterJS.BodyType) => boolean) {
+  constructor(scene: Phaser.Scene, getPose: () => WaterPose, system: ReactionSystem) {
     this.scene = scene
     this.getPose = getPose
-    this.extinguish = extinguish
+    this.system = system
     this.back = scene.add.graphics().setDepth(8).setVisible(false)
     this.front = scene.add.graphics().setDepth(14).setVisible(false)
     this.label = scene.add.text(0, 0, '', {
@@ -210,7 +212,8 @@ export class WaterWhipAttack {
       points.push(point)
       for (const body of hits) {
         if (whip.hitTargets.has(body)) continue
-        if (this.extinguish(body)) { whip.hitTargets.add(body); continue }
+        // Die Peitsche trifft Stoffe als Wassermasse (löscht Feuer, nässt Erde).
+        if (this.system.whipContact(body, whip.charge >= 1 ? R.chargedWhipWaterKg : R.whipWaterKg, point)) { whip.hitTargets.add(body); continue }
         if (!damageEnemy(body, whip.damage)) continue
         whip.hitTargets.add(body)
         const push = metersPerSecondToMatter(3 + whip.charge * 3)

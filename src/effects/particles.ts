@@ -65,6 +65,24 @@ export const dust = (scene: Phaser.Scene, x: number, y: number, count: number, m
   scene.time.delayedCall(BURST_CLEANUP_MS, () => emitter.destroy())
 }
 
+export const STEAM_COLORS = [0xffffff, 0xdfe7ec, 0xa9b6bf]
+
+/** Dampf: helle, nicht additive Wolke, die aufsteigt und sich ausdehnt. */
+export const steam = (scene: Phaser.Scene, x: number, y: number, count: number): void => {
+  const emitter = scene.add.particles(x, y, SPARK_TEXTURE, {
+    lifespan: { min: 700, max: 1200 },
+    angle: { min: 240, max: 300 },
+    speed: { min: 15, max: 45 },
+    gravityY: -40,
+    scale: { start: 1, end: 2.2 },
+    alpha: { start: 0.7, end: 0 },
+    color: STEAM_COLORS,
+    emitting: false,
+  }).setDepth(18)
+  emitter.explode(count)
+  scene.time.delayedCall(1300, () => emitter.destroy())
+}
+
 /** Einmalige Funken-/Staubexplosion; Partikel fallen mit echter Erdbeschleunigung. */
 export const burst = (
   scene: Phaser.Scene,

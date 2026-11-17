@@ -8,6 +8,8 @@ import { ELEMENTS, type ElementId, type ElementInfo } from '../config/elements.t
 import type { Player } from '../entities/Player.ts'
 import { ReactionSystem } from '../materials/ReactionSystem.ts'
 import { EarthMaterial } from '../materials/EarthMaterial.ts'
+import { FireMaterial } from '../materials/FireMaterial.ts'
+import { WaterMaterial } from '../materials/WaterMaterial.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -28,6 +30,8 @@ export class ElementController {
   /** Zentrales Reaktionssystem aller Stoffe; für Browserprüfungen öffentlich. */
   readonly system: ReactionSystem
   private readonly earthMaterial: EarthMaterial
+  private readonly fireMaterial: FireMaterial
+  private readonly waterMaterial: WaterMaterial
   private readonly earth: EarthRockAttack
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
@@ -44,12 +48,14 @@ export class ElementController {
     this.player = player
     this.system = new ReactionSystem(scene)
     this.earthMaterial = new EarthMaterial(scene, this.system, player.body)
+    this.fireMaterial = new FireMaterial(scene, this.system)
+    this.waterMaterial = new WaterMaterial(scene, this.system)
     this.earth = new EarthRockAttack(scene, player.body, this.earthMaterial, (charge) => {
       // Kleine/teilgeladene Blöcke brauchen nach dem Loslassen noch Zeit zum Anheben.
       if (this.selected.id === 'earth') player.cast(charge > 0 ? 'earth-charged' : 'earth')
     })
-    this.fire = new FireballAttack(scene, () => player.getCastOrigin())
-    this.water = new WaterJetAttack(scene, () => player.getWaterPose(), (body) => this.fire.extinguish(body))
+    this.fire = new FireballAttack(scene, this.fireMaterial, () => player.getCastOrigin())
+    this.water = new WaterJetAttack(scene, this.waterMaterial, () => player.getWaterPose(), this.system)
     this.air = new AirGustAttack(scene, player.body, this.system, () => player.getAirPose())
     this.attacks = {
       earth: this.earth,
@@ -284,6 +290,8 @@ export class ElementController {
       attack?.destroy()
     }
     this.earthMaterial.destroy()
+    this.fireMaterial.destroy()
+    this.waterMaterial.destroy()
     this.system.destroy()
   }
 }

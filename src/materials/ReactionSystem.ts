@@ -3,6 +3,7 @@ import { REACTIONS as R } from '../config/reactions.ts'
 import { PHYSICS_FPS, metersToPixels } from '../config/physics.ts'
 import { SubstanceRegistry, type Substance, type SubstanceKind } from './Substance.ts'
 import { lookupReaction, type ReactionContext } from './reactions.ts'
+import type { Materials } from './Materials.ts'
 
 export type WindSource = 'gust' | 'tornado'
 type WindHandler = (s: Substance, direction: Phaser.Math.Vector2, strength: number, source: WindSource) => void
@@ -23,6 +24,8 @@ const DISPLACE_ORDER: readonly SubstanceKind[] = ['water', 'sand', 'ice', 'fire'
  */
 export class ReactionSystem {
   readonly registry = new SubstanceRegistry()
+  /** Angemeldete Materialien, damit Reaktionshandler Stoffe umwandeln können. */
+  readonly materials: Partial<Materials> = {}
   private readonly scene: Phaser.Scene
   private readonly windHandlers = new Map<SubstanceKind, WindHandler>()
   private readonly heatHandlers = new Map<SubstanceKind, HeatHandler>()
@@ -98,6 +101,8 @@ export class ReactionSystem {
     this.heatHandlers.get(substance.kind)?.(substance, heatJ, this.context(point))
   }
 
+  attach<K extends keyof Materials>(kind: K, material: Materials[K]): void { this.materials[kind] = material }
+
   setWindHandler(kind: SubstanceKind, handler: WindHandler): void { this.windHandlers.set(kind, handler) }
   setHeatHandler(kind: SubstanceKind, handler: HeatHandler): void { this.heatHandlers.set(kind, handler) }
   setWhipHandler(kind: SubstanceKind, handler: WhipHandler): void { this.whipHandlers.set(kind, handler) }
@@ -157,8 +162,10 @@ export class ReactionSystem {
 }
 
 const contactPoint = (pair: Phaser.Types.Physics.Matter.MatterCollisionPair): { x: number; y: number } => {
-  const supports = (pair.collision as { supports?: { x: number; y: number }[] } | undefined)?.supports
-  if (supports?.length) {
+  // Matter legt das supports-Array mit fester Länge an; nicht belegte Plätze sind null.
+  const supports = ((pair.collision as { supports?: ({ x: number; y: number } | null)[] } | undefined)?.supports ?? [])
+    .filter((p): p is { x: number; y: number } => !!p)
+  if (supports.length) {
     return {
       x: supports.reduce((sum, p) => sum + p.x, 0) / supports.length,
       y: supports.reduce((sum, p) => sum + p.y, 0) / supports.length,

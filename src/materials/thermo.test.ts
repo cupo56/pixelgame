@@ -55,6 +55,12 @@ describe('Feuer und Wasser', () => {
     expect(seconds).toBeLessThan(8)
   })
 
+  it('die geladene Peitsche löscht einen vollen Feuerball, die normale einen halb geladenen', () => {
+    expect(quenchFire(R.fireHeatMaxJ, R.chargedWhipWaterKg).extinguished).toBe(true)
+    expect(quenchFire(fireHeatForCharge(0.5), R.whipWaterKg).extinguished).toBe(true)
+    expect(quenchFire(R.fireHeatMaxJ, R.whipWaterKg).extinguished).toBe(false)
+  })
+
   it('ein voller Windstoß aus der Nähe friert einen Tropfen', () => {
     expect(coolWater(R.waterStartC, R.gustCoolingK).frozen).toBe(true)
   })

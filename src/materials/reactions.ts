@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 import type { Substance, SubstanceKind } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
+import { quenchFire } from './thermo.ts'
 
 export interface ReactionContext {
   scene: Phaser.Scene
@@ -21,12 +22,22 @@ export const reactionKey = (a: SubstanceKind, b: SubstanceKind): string =>
 
 const noop: ReactionHandler = () => {}
 
+/** Wasser entzieht dem Feuer Verdampfungswärme und verdampft dabei; Q ≤ 0 löscht ohne Druckwelle. */
+const fireMeetsWater: ReactionHandler = (fire, water, ctx) => {
+  const { fire: fireMaterial, water: waterMaterial } = ctx.system.materials
+  if (!fireMaterial || !waterMaterial) return
+  const result = quenchFire(fire.heatJ, water.massKg)
+  fire.heatJ = result.heatJ
+  waterMaterial.evaporate(water)
+  if (result.extinguished) fireMaterial.quench(fire)
+}
+
 /**
  * Die Reaktionsmatrix des Designs. Die Materialien füllen die Handler über
  * `setReaction`; hier stehen nur die Zellen, die es überhaupt gibt.
  */
 export const REACTIONS = new Map<string, ReactionHandler>([
-  ['fire:water', noop],
+  ['fire:water', fireMeetsWater],
   ['fire:ice', noop],
   ['fire:earth', noop],
   ['fire:sand', noop],

@@ -65,3 +65,15 @@ describe('SubstanceRegistry', () => {
     expect(removed).toHaveLength(1)
   })
 })
+
+describe('kindOfLabel', () => {
+  it('ordnet Körper-Labels auch nach dem Abmelden ihrer Stoffart zu', async () => {
+    const { kindOfLabel } = await import('./Substance.ts')
+    expect(kindOfLabel('water')).toBe('water')
+    expect(kindOfLabel('puddle')).toBe('water')
+    expect(kindOfLabel('rock')).toBe('earth')
+    expect(kindOfLabel('fireball')).toBe('fire')
+    expect(kindOfLabel('ice-sheet')).toBe('ice')
+    expect(kindOfLabel('terrain')).toBeUndefined()
+  })
+})
