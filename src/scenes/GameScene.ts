@@ -71,18 +71,23 @@ export class GameScene extends Phaser.Scene {
       return
     }
     if (!this.player.health.alive) {
+      this.elements.loseMetal()
       this.player.restoreHealth()
       this.travel(CAMP.x, CAMP.y)
     }
     this.elements.update()
     this.player.render(delta)
+    this.elements.afterRender()
     for (const enemy of this.enemies) enemy.render()
     this.refreshHealth()
     const { x, y } = this.player.body.position
     this.hud.setRegion(y > 1080 ? 'Die Kristallgrotte' : y < 620 ? 'Die Himmelsinseln' : 'Das Grenzland')
     if (Phaser.Input.Keyboard.JustDown(this.mapKey)) this.map.setVisible(!this.map.visible)
     this.mapPlayer.setPosition(190 + x / WORLD.width * 580, 120 + y / WORLD.height * 240)
-    if (Phaser.Input.Keyboard.JustDown(this.recall) || y > WORLD.height - 70) {
+    const fell = y > WORLD.height - 70
+    if (Phaser.Input.Keyboard.JustDown(this.recall) || fell) {
+      // Rückruf behält die Rüstung, ein Absturz kostet sie.
+      if (fell) this.elements.loseMetal()
       this.player.restoreHealth()
       this.travel(CAMP.x, CAMP.y)
     }
@@ -148,11 +153,14 @@ export class GameScene extends Phaser.Scene {
   private refreshHealth(): void {
     const { current, max } = this.player.health
     this.hud.setHealth(current, max)
+    this.hud.setArmor(this.player.armor.current, this.player.armor.max)
   }
 
   private travel(x: number, y: number): void {
     this.elements.cancelPreparedAttack()
+    const from = { x: this.player.body.position.x, y: this.player.body.position.y }
     this.matter.body.setPosition(this.player.body, { x, y })
+    this.elements.afterTeleport(x - from.x, y - from.y)
     this.matter.body.setVelocity(this.player.body, { x: 0, y: 0 })
     this.cameras.main.centerOn(x, y)
     this.cameras.main.flash(250, 155, 209, 196, false)

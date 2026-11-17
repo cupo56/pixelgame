@@ -8,8 +8,9 @@ import {
 } from '../config/physics.ts'
 import { COLLISION_CATEGORY } from '../config/collision.ts'
 import { JUMP_SPEED_MS, PLAYER } from '../config/player.ts'
-import { StickFigureView } from './StickFigureView.ts'
+import { StickFigureView, type ArmorAnchor } from './StickFigureView.ts'
 import { Health } from '../combat/Health.ts'
+import { Armor } from '../combat/Armor.ts'
 import { COMBAT } from '../config/combat.ts'
 import { REACTIONS } from '../config/reactions.ts'
 
@@ -30,6 +31,8 @@ interface MoveKeys {
 export class Player {
   readonly body: MatterJS.BodyType
   readonly health = new Health(PLAYER.maxHealth)
+  /** Metallrüstung: fängt Schaden vor dem Leben ab. */
+  readonly armor = new Armor()
   private protectedUntil = 0
   private readonly view: StickFigureView
   private readonly keys: MoveKeys
@@ -123,11 +126,16 @@ export class Player {
 
   getCastOrigin(): Phaser.Math.Vector2 { return this.view.castOrigin }
 
+  /** Schaden geht zuerst in die Rüstung, der Rest ins Leben; danach kurze Schutzzeit. */
   takeDamage(amount: number): boolean {
-    if (this.scene.time.now < this.protectedUntil || !this.health.hurt(amount)) return false
+    if (this.scene.time.now < this.protectedUntil || !Number.isFinite(amount) || amount <= 0 || !this.health.alive) return false
+    const rest = this.armor.absorb(amount)
+    if (rest > 0) this.health.hurt(rest)
     this.protectedUntil = this.scene.time.now + COMBAT.playerProtectionMs
     return true
   }
+
+  getArmorAnchors(): ArmorAnchor[] { return this.view.armorAnchors() }
 
   restoreHealth(): void {
     this.health.restore()

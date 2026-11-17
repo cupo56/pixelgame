@@ -14,6 +14,10 @@ export interface FigurePose {
 }
 
 type Point = { x: number; y: number }
+
+export type ArmorAnchorId = 'chest' | 'upperArmFront' | 'foreArmFront' | 'upperArmBack' | 'thighFront' | 'shinFront' | 'thighBack' | 'shinBack'
+/** Mittelpunkt, Winkel (rad) und Länge eines Körpersegments, an dem eine Rüstungsplatte sitzt. */
+export interface ArmorAnchor { id: ArmorAnchorId; x: number; y: number; angle: number; length: number }
 const mix = (a: number, b: number, t: number) => a + (b - a) * t
 const mixPoint = (a: Point, b: Point, t: number): Point => ({ x: mix(a.x, b.x, t), y: mix(a.y, b.y, t) })
 const FRONT_COLOR = 0xe5ecdf
@@ -57,6 +61,8 @@ export class StickFigureView {
   private readonly waterCenter = new Phaser.Math.Vector2()
   private readonly frontHand = new Phaser.Math.Vector2()
   private readonly supportHand = new Phaser.Math.Vector2()
+  /** Beim letzten draw() berechnete Segmente; Grundlage der Rüstungsanker. */
+  private readonly bones = new Map<ArmorAnchorId, { a: Point; b: Point }>()
 
   constructor(scene: Phaser.Scene) {
     this.graphics = scene.add.graphics().setDepth(10)
@@ -302,6 +308,8 @@ export class StickFigureView {
       const color = back ? BACK_COLOR : FRONT_COLOR
       this.segment(hip, knee, 3, color)
       this.segment(knee, foot, 3, color)
+      this.bones.set(back ? 'thighBack' : 'thighFront', { a: { ...hip }, b: { ...knee } })
+      this.bones.set(back ? 'shinBack' : 'shinFront', { a: { ...knee }, b: { ...foot } })
       this.segment(foot, { x: foot.x + footFacing * mix(5, -2, p.prone), y: foot.y }, 3, color)
     }
     leg(Math.PI, true)
@@ -318,9 +326,11 @@ export class StickFigureView {
       p.prone,
     ), this.joint(freeShoulder, freeHand, 12, 13, -this.aimFacing), this.guidedHands)
     this.segment(freeShoulder, freeElbow, 3, BACK_COLOR)
+    this.bones.set('upperArmBack', { a: { ...freeShoulder }, b: { ...freeElbow } })
     this.segment(freeElbow, freeHand, 3, BACK_COLOR)
     if (this.guidedHands > 0.1) this.rect(freeHand.x - 2, freeHand.y - 2, 4, 4, FRONT_COLOR)
     this.segment(hip, shoulder, 4, FRONT_COLOR)
+    this.bones.set('chest', { a: { ...hip }, b: { x: shoulder.x, y: shoulder.y } })
     leg(0, false)
     const headX = shoulder.x + this.moveFacing * 10 * p.prone
     const headY = shoulder.y - mix(10, 2, p.prone) + Math.sin(this.elapsed * 2) * 0.35 * (1 - p.prone)
@@ -329,12 +339,21 @@ export class StickFigureView {
     const elbow = this.joint(shoulder, this.frontHand, 12, 11 + this.guidedHands * 2, this.aimFacing)
     this.segment(shoulder, elbow, 3, FRONT_COLOR)
     this.segment(elbow, this.frontHand, 3, FRONT_COLOR)
+    this.bones.set('upperArmFront', { a: { x: shoulder.x, y: shoulder.y }, b: { ...elbow } })
+    this.bones.set('foreArmFront', { a: { ...elbow }, b: { x: this.frontHand.x, y: this.frontHand.y } })
     this.rect(this.frontHand.x - 2, this.frontHand.y - 2, 4, 4, FRONT_COLOR)
     this.rect(this.frontHand.x - 1, this.frontHand.y - 1, 3, 3, this.color)
     if (this.pulse > 0) {
       const r = 4 + this.pulse * 4
       g.lineStyle(1, this.color, this.pulse).strokeRect(Math.round(this.hand.x - r), Math.round(this.hand.y - r), r * 2, r * 2)
     }
+  }
+
+  /** Rüstungsanker aus den zuletzt gezeichneten Segmenten (auch in Bauchlage). */
+  armorAnchors(): ArmorAnchor[] {
+    return [...this.bones].map(([id, { a, b }]) => ({
+      id, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, angle: Math.atan2(b.y - a.y, b.x - a.x), length: Math.hypot(b.x - a.x, b.y - a.y),
+    }))
   }
 
   private joint(a: Point, b: Point, upper: number, lower: number, bend: number): Point {

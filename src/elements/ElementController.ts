@@ -16,6 +16,7 @@ import { Puddle } from '../materials/Puddle.ts'
 import { IceMaterial } from '../materials/IceMaterial.ts'
 import { SandMaterial } from '../materials/SandMaterial.ts'
 import { MetalMaterial } from '../materials/MetalMaterial.ts'
+import { ArmorPlates } from '../metal/ArmorPlates.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -38,6 +39,8 @@ export class ElementController {
   private readonly ice: IceMaterial
   private readonly sand: SandMaterial
   private readonly metal: MetalMaterial
+  /** Rüstungsplatten aus gebändigtem Metall; für Browserprüfungen öffentlich. */
+  readonly metalPlates: ArmorPlates
   private readonly earth: EarthRockAttack
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
@@ -59,6 +62,7 @@ export class ElementController {
     this.ice = new IceMaterial(scene, this.system)
     this.sand = new SandMaterial(scene, this.system)
     this.metal = new MetalMaterial(scene, this.system, player.body)
+    this.metalPlates = new ArmorPlates(scene, player)
     this.waterMaterial = new WaterMaterial(scene, this.system, this.puddles)
     this.earth = new EarthRockAttack(scene, player.body, this.earthMaterial, (charge) => {
       // Kleine/teilgeladene Blöcke brauchen nach dem Loslassen noch Zeit zum Anheben.
@@ -113,6 +117,21 @@ export class ElementController {
     for (const attack of Object.values(this.attacks)) attack?.updateAim?.(origin, direction)
 
     this.drawAim(origin, direction, target)
+  }
+
+  /** Teleport: angelegtes Metall reist mit (Versatz in px). */
+  afterTeleport(dx: number, dy: number): void {
+    this.metalPlates.shift(dx, dy)
+  }
+
+  /** Absturz oder Tod: die Rüstung ist verloren. */
+  loseMetal(): void {
+    this.metalPlates.shatter(true)
+  }
+
+  /** Nach dem Zeichnen der Figur liegen frische Anker vor. */
+  afterRender(): void {
+    this.metalPlates.anchorsRefreshed()
   }
 
   get selectedElement(): ElementId {
@@ -298,6 +317,7 @@ export class ElementController {
     this.ice.destroy()
     this.sand.destroy()
     this.metal.destroy()
+    this.metalPlates.destroy()
     this.system.destroy()
   }
 }

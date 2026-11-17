@@ -17,6 +17,10 @@ export class HudBar {
   private readonly regionName: HTMLElement
   private readonly items = new Map<ElementId, HTMLElement>()
   private health = { current: -1, max: -1 }
+  private armor = { current: -1, max: -1 }
+  private readonly armorRoot: HTMLElement
+  private readonly armorValue: HTMLElement
+  private readonly armorFill: HTMLElement
   private regionLabel = ''
   private selected?: ElementId
 
@@ -30,7 +34,7 @@ export class HudBar {
     root.id = ROOT_ID
     this.root = root
     root.innerHTML = `
-      <div class="hud-health"><span class="hud-label">Leben</span><span class="hud-health-bar"><span class="hud-health-fill"></span></span><span class="hud-health-value"></span></div>
+      <div class="hud-health"><span class="hud-label">Leben</span><span class="hud-health-bar"><span class="hud-health-fill"></span></span><span class="hud-health-value"></span><span class="hud-armor"><span class="hud-label">Rüstung</span><span class="hud-armor-bar"><span class="hud-armor-fill"></span></span><span class="hud-armor-value"></span></span></div>
       <div class="hud-elements"></div>
       <div class="hud-region"><span class="hud-region-name"></span></div>
     `
@@ -42,6 +46,10 @@ export class HudBar {
     this.healthValue = pick('.hud-health-value')
     this.healthFill = pick('.hud-health-fill')
     this.regionName = pick('.hud-region-name')
+    this.armorRoot = pick('.hud-armor')
+    this.armorValue = pick('.hud-armor-value')
+    this.armorFill = pick('.hud-armor-fill')
+    this.armorRoot.hidden = true
     const list = pick('.hud-elements')
     ELEMENTS.forEach((element, index) => {
       const item = document.createElement('div')
@@ -81,6 +89,15 @@ export class HudBar {
     this.healthValue.textContent = `${current} / ${max}`
     this.healthFill.style.width = `${Math.round((max > 0 ? current / max : 0) * 100)}%`
     this.healthFill.classList.toggle('is-low', current <= 30)
+  }
+
+  /** Rüstungsbalken; bei max 0 oder current 0 ausgeblendet. */
+  setArmor(current: number, max: number): void {
+    if (current === this.armor.current && max === this.armor.max) return
+    this.armor = { current, max }
+    this.armorRoot.hidden = max <= 0 || current <= 0
+    this.armorValue.textContent = `${current} / ${max}`
+    this.armorFill.style.width = `${Math.round((max > 0 ? current / max : 0) * 100)}%`
   }
 
   setRegion(name: string): void {

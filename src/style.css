@@ -78,6 +78,38 @@ canvas {
   background: #e78b86;
 }
 
+.hud-armor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 6px;
+}
+
+.hud-armor[hidden] {
+  display: none;
+}
+
+.hud-armor-bar {
+  display: inline-block;
+  width: min(110px, 10vw);
+  height: 8px;
+  background: #2a3138;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hud-armor-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(#d4d9df, #8a939d);
+  transition: width 160ms ease-out;
+}
+
+.hud-armor-value {
+  color: #c9ced6;
+  font-variant-numeric: tabular-nums;
+}
+
 .hud-health-value {
   font-variant-numeric: tabular-nums;
 }

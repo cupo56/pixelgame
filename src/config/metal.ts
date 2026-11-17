@@ -12,7 +12,7 @@ export const METAL = {
   pullSpeedMs: 9,
   pullResponse: 10,
   /** Anteil der Abweichung zum Anker, den eine Platte je Physikschritt aufholt. */
-  plateSpring: 0.45,
+  plateSpring: 0.8,
   /** Ab dieser Abweichung (px) wird eine Platte direkt auf ihren Anker gesetzt (Teleport). */
   plateSnapPx: 12,
   chargeMs: 2000,
