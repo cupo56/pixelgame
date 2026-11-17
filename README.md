@@ -19,21 +19,64 @@ Die handgebaute Region verbindet Grenzwacht und alten Hain an der Oberfläche mi
 | --- | --- |
 | A / D | Laufen (6 m/s) |
 | Shift + A / D | Gehen (2,2 m/s) |
+| S halten | Schnell auf den Bauch legen; mit A / D kriechen (0,8 m/s). Loslassen zum Aufstehen |
 | Leertaste / W | Springen; kurz tippen für einen kleineren Sprung |
 | Maus / Linksklick | Zielen / Elementangriff |
+| Erde: Linksklick halten / loslassen | Großen Erdblock aufladen / werfen; kurzer Klick wirft einen kleinen Block |
+| Feuer: Linksklick halten / loslassen | Feuerball mit beiden Händen aufladen / sofort abfeuern; kurzer Klick wirft den normalen Feuerball |
+| Wasser: Linksklick halten / loslassen | Wasserpeitsche aufladen / zur Maus schlagen; kurzer Klick wirft einen kleinen Wasserstoß |
+| Luft: Linksklick halten / loslassen | Tornado aufladen / am Boden losschicken; kurzer Klick erzeugt beim Loslassen den bisherigen Luftstoß |
 | 1 / 2 / 3 / 4 | Erde / Feuer / Wasser / Luft |
+| Mausrad runter / hoch | Nächstes / vorheriges Element; wechselt im Kreis durch Erde → Feuer → Wasser → Luft |
 | Luft + Sprung halten | Gleiten; im markierten Aufwind aufsteigen |
 | E | Aufzug in der Nähe benutzen |
 | Tab | Übersichtskarte öffnen / schließen |
-| R | Zum Lager zurückkehren |
+| R | Zum Lager zurückkehren und Leben auffüllen |
+| T | Test neu starten: drei Gegner mit je 30 LP, Spieler mit 100 LP |
 
 Vom Lager nach rechts durch den Hain gehen und die Stufen in die Grotte hinabsteigen. Der Runenaufzug am rechten Ende der Grotte führt auf die östliche Oberfläche. Dort führt ein zweiter Aufzug in beide Richtungen zu den Himmelsinseln. Die Inselabstände lassen sich mit Anlauf überspringen; Luft erleichtert die Überquerung. Alle drei Grenzsteine sind auch mit Erde erreichbar.
 
-Dies ist die erste Weltregion mit den vier bestehenden Elementangriffen. Gegner, Bosse, Elementfreischaltungen, Metall, Antimaterie und prozedurale Weltgeneration folgen in späteren Entwicklungsschritten. Das Tor zur Eisenstadt ist ein versiegelter Ausblick.
+Die Treppe lässt sich mit A / D hinauf- und hinabgehen, ohne zu springen. Aufrecht überwindet die Figur beim Gehen und Rennen automatisch Stufen bis 0,6 m, sofern der Weg und der Platz über dem Kopf frei sind. Beim Hinuntersteigen folgt sie jeder Stufe und behält ihre Schrittbewegung bei, ohne zwischendurch in die Fall- oder Landepose zu wechseln. Höhere Wände, echte Abgründe, Sprünge und Bauchlage lösen diese automatische Stufenbewegung nicht aus.
 
-Die Figur wird aus scharf gerasterten Pixelgliedmaßen aufgebaut. Schritte folgen der Bewegungsgeschwindigkeit; Ellbogen und Knie werden aus den Hand- und Fußpositionen berechnet. Die vordere Hand zielt zur Maus und ist der Ursprung der Fähigkeiten. Der freie Arm schwingt mit. Sprung-, Fall- und Landeposen ergänzen die Laufanimation. Sprungeingaben werden 120 ms gepuffert; nach einer Kante bleiben 90 ms Zeit zum Absprung.
+Rechts vom Lager patrouillieren drei fliegende Testgegner: flauschige Plüschbälle mit Knopfaugen, Nähten und flatternden Fledermausflügeln. Jeder hat 30 Lebenspunkte mit eigener Anzeige. Der Spieler startet mit 100 LP; sein Lebensbalken steht oben im HUD. Eine Berührung verursacht 10 Schaden, danach schützen 800 ms vor weiteren Kontakttreffern. Bei 0 LP kehrt der Spieler mit vollem Leben zum Lager zurück. Besiegte Gegner verschwinden in einer kleinen Plüschwolke; T startet den Test mit frischen Gegnern neu.
+
+Alle vier Elemente verursachen Testschaden: Erde 15 pro kleinem Block und bis zu 60 bei voller Aufladung, Feuer bis zu 12 je normaler Explosion bzw. 48 bei voller Aufladung, Wasser 1 pro Tropfen oder 8 bis 20 pro Peitschenschlag und Luft bis zu 6 pro Windstoß. Ein Erdblock kann jeden Gegner einmal pro Wurf verletzen; ein neuer Luftstoß macht einen weiteren Treffer möglich. Feuer- und Luftschaden nehmen mit der Entfernung ab. Treffer und Windstöße versetzen die fliegenden Gegner in Bewegung, bevor sie in ihre Flugbahn zurückkehren.
+
+Dies ist die erste Weltregion mit den vier bestehenden Elementangriffen und Testgegnern. Weitere Gegner, Bosse, Elementfreischaltungen, Metall, Antimaterie und prozedurale Weltgeneration folgen in späteren Entwicklungsschritten. Das Tor zur Eisenstadt ist ein versiegelter Ausblick.
+
+Die Figur bleibt vorerst ein Strichmännchen mit dünnen Gliedmaßen und rundem Kopf. Schritte folgen der tatsächlichen Bewegungsgeschwindigkeit: Knie, Füße und Schrittbewegung richten sich unabhängig von der Maus nach links oder rechts aus. Im Stand bleibt die letzte Laufrichtung erhalten. Ellbogen und Knie werden aus den Hand- und Fußpositionen berechnet. Die Zielhand ist der Ursprung der Geschosse; beim Luftstoß liegt der Ursprung zwischen beiden Handflächen. Außerhalb eines Angriffs schwingt der freie Arm gegenläufig zu den Beinen. Sprung-, Fall- und Landeposen ergänzen die Laufanimation. Sprungeingaben werden 120 ms gepuffert; nach einer Kante bleiben 90 ms Zeit zum Absprung.
+
+Jedes Element besitzt eine eigene Körperbewegung: Erde einen schweren Doppelarmstoß, Feuer einen schnellen Fauststoß oder bei Aufladung einen beidhändigen Schub, Wasser eine fließende Armbewegung und Luft einen breiten Stoß mit offenen Handflächen. Oberkörper und Stand unterstützen den Angriff, anschließend kehrt die Figur weich in ihre normale Haltung zurück. Die Posen spiegeln sich mit der Mauszielrichtung, passen sich der Bauchlage an und lassen beim Laufen den Schrittrhythmus bestehen. Elementwechsel, Fokusverlust und Rückruf lösen die Haltung wieder auf.
 
 `scripts/check-movement.py` prüft Geh-/Laufgeschwindigkeit, Abbremsen, kurze und volle Sprünge, Zielhand in vier Richtungen sowie alle Elementangriffe im Entwicklungsserver auf Port 5174.
+
+Die Bauchlage beginnt am Boden und dauert etwa 0,1 Sekunden; Aufstehen dauert etwa 0,18 Sekunden. Die Kollisionsform wird dabei flach und breit, die Füße bleiben am Boden und der bestehende Schwung wird abgebremst. Unter niedrigen Decken bleibt die Figur liegen, bis wieder genug Platz zum Aufstehen ist. Zielen und Elementangriffe funktionieren auch in Bauchlage; Springen ist erst wieder im Stand möglich. Wird S in der Luft gehalten, legt sich die Figur nach der Landung hin.
+
+Ein kurzer Linksklick hebt wie bisher einen kleinen Erdblock aus dem Gelände neben der Figur: Risse und Staub kündigen das Herauslösen an, dann steigt der Block nach dem Loslassen in 260 ms auf Handhöhe. Nach 80 ms Schweben wird er in die aktuelle Zielrichtung der Hand geschossen; während des Anhebens lässt sich weiter zielen. Der 0,5-m-Erdblock hat bei angenommener Dichte von 1.800 kg/m³ eine Masse von 225 kg und startet mit etwa 14,6 m/s.
+
+Bleibt die linke Maustaste länger als 180 ms gedrückt, beginnt stattdessen die Aufladung. Unter Vibration, Rissen und dichter werdendem Staub wächst der Block langsam aus dem Boden. Die Anzeige am Block zeigt den Fortschritt. Nach weiteren 2,2 Sekunden erreicht er 1,5 m Kantenlänge und 60 Schaden. Er bleibt auch voll aufgeladen schwebend, bis die Taste losgelassen wird. Früheres Loslassen ergibt entsprechend kleinere Blöcke mit 15 bis 60 Schaden; sie steigen vor dem Wurf noch vollständig aus dem Boden. Große Blöcke sind schwerer (maximal 6.075 kg) und starten langsamer (minimal 10 m/s).
+
+Beim Aufladen geht die Figur in einen tiefen, breiten Stand und hebt beide Handflächen zusammen mit dem Block an; leichte Armvibration zeigt die Anstrengung. Diese Haltung bleibt auch beim vorzeitigen Loslassen bestehen, bis der Block frei ist. Erst beim tatsächlichen Abschuss folgt der kräftige Wurfstoß mit Gewichtsverlagerung nach vorne, bei voller Ladung mit längerem Nachschwingen.
+
+Dafür braucht es erreichbaren Boden und einen freien Weg nach oben. An schmalen Kanten oder unter Hindernissen stoppt das Wachstum bei der noch passenden Größe. Elementwechsel, Rückkehr zum Lager oder Fokusverlust brechen das Aufladen ab. Nach dem Abschuss wirken Schwerkraft, Masse, Reibung und ein schwacher Rückprall. Abgelegte Blöcke bleiben kurz als feste Hindernisse liegen und verschwinden nach zehn Sekunden.
+
+Erde und Luft lassen sich kombinieren: Einen Erdblock werfen, mit **4** zu Luft wechseln, auf den Block zielen und einen Luftstoß auslösen. Der Stoß addiert Geschwindigkeit in Zielrichtung, auch bei großen, noch fliegenden Blöcken. Kleine Blöcke reagieren stärker als schwere. Liegende Blöcke werden bei einem seitlichen oder aufwärts gerichteten Stoß etwas angehoben und können erneut Gegner treffen; ihre 15 bis 60 Schadenspunkte bleiben erhalten. Helle Luftstreifen zeigen den Schub am Block. Die Windwirkung nimmt innerhalb von sieben Metern ab; wiederholte Stöße beschleunigen bis 30 m/s. Ein bereits losgelassener Erdwurf läuft beim Elementwechsel weiter. Nach jedem Luftstoß bleibt der getroffene Block wieder zehn Sekunden erhalten.
+
+Bei **Feuer (2)** wirft ein kurzer Linksklick den normalen Feuerball beim Loslassen. **Linke Maustaste halten** lädt wie bei Erde nach 180 ms Haltezeit eine größere Feuerkugel auf: Die Figur geht im Stand in eine breite, abgesenkte Kampfhaltung und sammelt die Kugel mit beiden Händen an der hinteren Hüfte. Kleine Feuerpartikel wirbeln hinein, Glut steigt auf und die Kugel pulsiert zunehmend. Die Haltung spiegelt sich beim Zielen nach links oder rechts; Bewegung, Sprung und Bauchlage behalten ihre Physik.
+
+Nach **zwei Sekunden Aufladung** ist der Feuerball vollständig geladen. Er bleibt in den Händen, bis links losgelassen wird. Dann stoßen beide Arme sofort nach vorne und der Ball startet ohne weitere Vorbereitung mit **20 m/s**, genau wie der normale Feuerball. Teilaufladungen sind möglich: Radius, Explosionsgröße, Druckwelle und Schaden wachsen mit der Ladung, bis zu 48 Schaden und 4,5 m Explosionsradius. Während des Haltens werden keine zusätzlichen normalen Feuerbälle abgeschossen. Elementwechsel, Rückruf, Fokusverlust oder Neustart brechen die Aufladung ab. Auch große Feuerbälle werden von Wasser gelöscht und verletzen den eigenen Spieler nicht.
+
+Bei **Wasser (3)** wirft ein kurzer Linksklick fünf Wassertropfen mit ihrer bisherigen Flugphysik. **Links halten** beginnt nach 180 ms die Aufladung einer Wasserpeitsche: Ein wachsendes Wasserband kreist vor und hinter der Figur, kleine Tropfen strömen hinein, beide Arme führen kreisende Bewegungen aus und das Gewicht verlagert sich zwischen den Beinen. Laufen, Springen und Bauchlage funktionieren dabei weiter.
+
+Nach **zwei Sekunden Aufladung** ist die Peitsche vollständig geladen. Beim Loslassen schnellt sie in einem gebogenen Schlag in die aktuelle Mauszielrichtung und zieht sich anschließend zurück. Je nach Ladung erreicht sie **3 bis 7 m** und verursacht **8 bis 20 Schaden** pro Gegner. Mehrere Gegner können getroffen werden, jeder aber nur einmal pro Schlag. Wände, Gelände und Erdblöcke begrenzen den sichtbaren Wasserbogen und seinen Trefferbereich. Die Peitsche löscht auch Feuerbälle.
+
+Ein voll geladener Treffer bildet zusätzlich eine sichtbare **Eisfessel für 1,6 Sekunden**. Der Gegner wird zunächst zurückgestoßen, stoppt dann seinen Flug und taut danach von selbst wieder auf. Er bleibt währenddessen verwundbar und kann von Luft oder Erdblöcken getroffen und weitergestoßen werden. Ein Plüschgegner mit 30 LP hat nach dem vollen Peitschentreffer noch 10 LP – genug Gelegenheit für einen Folgeangriff. Teilaufladungen frieren nicht ein. Elementwechsel und Fokusverlust brechen das Aufladen ab; Rückruf und Neustart entfernen auch eine gerade aktive Peitsche.
+
+Bei **Luft (4)** löst ein kurzer Linksklick beim Loslassen den bisherigen Windstoß samt Rückstoß und Erdblock-Beschleunigung aus. **Links halten** beginnt nach 180 ms die Tornado-Aufladung. Beide Hände kreisen um eine Luftkugel; mehrere geneigte Windbänder, ein heller Kern und einströmender Staub verdichten sich mit der Ladung. Nach **zwei Sekunden** ist der Wirbel vollständig geladen und bleibt bis zum Loslassen zwischen den Händen. Dabei werden keine normalen Luftstöße ausgelöst.
+
+Der Tornado entsteht beim Loslassen **auf echtem Boden in der Nähe des Spielers**, auch wenn dieser gerade springt. Ein Ring am Boden zeigt den vorgesehenen Ursprung. Ohne erreichbaren Boden innerhalb von vier Metern nach unten oder bei zu wenig Platz entsteht kein Tornado. Er wächst vom Boden aus nach oben und wandert je nach Mausziel nach links oder rechts. Seine Basis folgt kleinen Geländestufen bis 0,6 m; Wände, niedrige Decken und größere Abgründe lösen ihn auf. Teilaufladungen ergeben kleinere, kürzere Wirbel; voll geladen erreicht er 5 m Höhe und bleibt bis zu 3,2 Sekunden aktiv.
+
+Vorhandene **Erdblöcke kreisen mit dem wandernden Tornado mit**. Die Windführung verändert ihre Geschwindigkeit, nicht ihre Position oder Masse: Schwere Blöcke reagieren träger und rotieren langsamer, Kollisionen mit Gelände und Gegnern bleiben wirksam. Beim Auflösen fliegen die Blöcke mit ihrem Schwung weiter und fallen wieder unter Schwerkraft; ihre Lebensdauer beträgt anschließend erneut zehn Sekunden. Der Tornado selbst verursacht pro Gegner einmalig **8 bis 18 Schaden**, reißt ihn kurz in seine Umlaufbahn und schleudert ihn weiter. Mitgeführte Erdblöcke behalten ihren eigenen Trefferschaden. Elementwechsel bricht nur die Aufladung ab; ein bereits gestarteter Tornado läuft weiter. Fokusverlust, Rückruf und Neustart räumen auch aktive Tornados auf und lösen ihre Bindung zu den Blöcken.
 
 ## Browserprüfung
 

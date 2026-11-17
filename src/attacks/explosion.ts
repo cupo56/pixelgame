@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
+import { damageEnemy } from '../combat/damage.ts'
 
 interface Point {
   x: number
@@ -12,6 +13,7 @@ export const applyBlast = (
   center: Point,
   radiusM: number,
   impulseNs: number,
+  damage = 0,
 ): void => {
   const radiusPx = metersToPixels(radiusM)
   for (const body of scene.matter.world.getAllBodies()) {
@@ -25,6 +27,7 @@ export const applyBlast = (
       continue
     }
     const falloff = 1 - distance / radiusPx
+    damageEnemy(body, Math.ceil(damage * falloff))
     const dirX = distance > 0 ? dx / distance : 0
     const dirY = distance > 0 ? dy / distance : -1
     const deltaV = metersPerSecondToMatter((impulseNs * falloff) / body.mass)

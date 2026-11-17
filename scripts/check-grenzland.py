@@ -47,11 +47,30 @@ with sync_playwright() as p:
     page.keyboard.press('Tab', delay=80)
 
     # Walk the actual route from the camp into the grotto, without teleporting.
+    page.evaluate("""() => {
+        window.descentSamples = [];
+        window.sampleDescent = () => {
+            const p = testScene.player;
+            if (p.body.position.x > 1510 && p.body.position.x < 2080) {
+                descentSamples.push({grounded: p.grounded, landing: p.landing});
+            }
+        };
+        testScene.events.on('postupdate', sampleDescent);
+    }""")
     hold('d', 11000)
+    descent = page.evaluate("() => { testScene.events.off('postupdate', sampleDescent); return descentSamples; }")
+    assert len(descent) > 50 and all(p['grounded'] and p['landing'] == 0 for p in descent), descent
     assert 'grove' in state()['found'], state()
     assert 'cave' in state()['found'], state()
     assert state()['y'] > 1400, state()
     page.screenshot(path=str(OUTPUT / 'grenzland-grotte.png'))
+    # Return up every stair with A alone; no jumping or running start required.
+    cave_state = state()
+    place(2140, 1448)
+    hold('a', 4500)
+    assert state()['x'] < 1480 and state()['y'] < 900, state()
+    page.screenshot(path=str(OUTPUT / 'grenzland-treppe-oben.png'))
+    place(cave_state['x'], cave_state['y'])
     # Reach the cave's return lift.
     if state()['x'] < 2475:
         page.keyboard.down('d')

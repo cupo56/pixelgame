@@ -5,9 +5,18 @@ export const PLAYER = {
   heightM: 1.8,
   widthM: 0.5,
   massKg: 80,
+  maxHealth: 100,
   /** Höchstgeschwindigkeit beim Rennen (m/s). */
   maxSpeedMs: 6,
   walkSpeedMs: 2.2,
+  /** Automatische Stufenhöhe auf- und abwärts (19,2 px für die 17-px-Treppe). */
+  stepHeightM: 0.6,
+  /** Bauchlage: flacher, längerer Körper und langsames Kriechen. */
+  proneHeightM: 0.5,
+  proneWidthM: 1.9,
+  crawlSpeedMs: 0.8,
+  proneDownSeconds: 0.1,
+  proneUpSeconds: 0.18,
   /** Beschleunigung am Boden (m/s²): ~0,75 s bis zur Höchstgeschwindigkeit. */
   groundAccelMs2: 14,
   /** Haftreibung beim Stoppen: Reibwert 0,8 * g (m/s²). */

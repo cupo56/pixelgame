@@ -3,6 +3,9 @@ import type { Attack } from './Attack.ts'
 import { COLLISION_CATEGORY, WATER_GROUP, WATER_MASK } from '../config/collision.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { burst } from '../effects/particles.ts'
+import { damageEnemy } from '../combat/damage.ts'
+import { COMBAT } from '../config/combat.ts'
+import { WaterWhipAttack, type WaterPose } from './WaterWhipAttack.ts'
 
 const DROPLET_RADIUS_M = 0.08
 const DROPLET_MASS_KG = 0.15
@@ -17,7 +20,7 @@ const SPLASH_CHANCE = 0.35
 const WATER_COLOR = 0x3fa7ff
 const SPLASH_COLORS = [0xbfe6ff, 0x3fa7ff, 0x1b6fc2]
 
-/** Strahl aus einzelnen Tropfen mit echter Flugbahn; gedrückt halten = Dauerstrahl. */
+/** Kurzer Klick: echte Wassertropfen. Halten: Wasserpeitsche mit Eisfessel. */
 export class WaterJetAttack implements Attack {
   readonly name = 'Wasserstrahl'
   readonly cooldownMs = 90
@@ -25,15 +28,28 @@ export class WaterJetAttack implements Attack {
   readonly energyJoules = 15
 
   private readonly scene: Phaser.Scene
+  private readonly whip: WaterWhipAttack
   /** Einfügereihenfolge = Alter; der älteste Tropfen wird bei Überlauf entfernt. */
   private readonly droplets = new Map<MatterJS.BodyType, Phaser.GameObjects.Arc>()
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, getPose: () => WaterPose, extinguish: (body: MatterJS.BodyType) => boolean) {
     this.scene = scene
+    this.whip = new WaterWhipAttack(scene, getPose, extinguish)
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
 
-  execute(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): void {
+  get isCharging(): boolean { return this.whip.isCharging }
+  get chargeProgress(): number | undefined { return this.whip.chargeProgress }
+  get chargedCooldownMs(): number { return this.whip.cooldownMs }
+  beginCharge(): boolean { return this.whip.beginCharge() }
+  cancelCharge(): void { this.whip.cancelCharge() }
+  cancel(): void { this.whip.cancel() }
+  release(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): boolean {
+    return this.whip.release(origin, direction)
+  }
+
+  execute(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): boolean {
+    if (this.isCharging) return false
     const aim = Math.atan2(direction.y, direction.x)
     const baseSpeedMs = Math.sqrt((2 * this.energyJoules) / DROPLET_MASS_KG)
     for (let i = 0; i < DROPLETS_PER_BURST; i++) {
@@ -41,10 +57,12 @@ export class WaterJetAttack implements Attack {
       const speedMs = baseSpeedMs * Phaser.Math.FloatBetween(1 - SPEED_JITTER, 1 + SPEED_JITTER)
       this.spawnDroplet(origin, angle, speedMs)
     }
+    return true
   }
 
   destroy(): void {
-    this.scene.matter.world.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
+    this.whip.destroy()
+    this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     for (const body of [...this.droplets.keys()]) {
       this.remove(body)
     }
@@ -92,6 +110,7 @@ export class WaterJetAttack implements Attack {
     if (!shape || other.isSensor) {
       return
     }
+    damageEnemy(other, COMBAT.waterDamage)
     const speedMs = matterToMetersPerSecond(candidate.speed)
     if (speedMs >= SPLASH_MIN_SPEED_MS && Math.random() < SPLASH_CHANCE) {
       burst(this.scene, shape.x, shape.y, SPLASH_COLORS, 3, speedMs * 8)
@@ -111,7 +130,7 @@ export class WaterJetAttack implements Attack {
   }
 
   private dispose(body: MatterJS.BodyType, shape: Phaser.GameObjects.Arc): void {
-    this.scene.matter.world.remove(body)
+    this.scene.matter.world?.remove(body)
     shape.destroy()
   }
 }

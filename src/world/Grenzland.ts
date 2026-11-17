@@ -66,7 +66,7 @@ export class Grenzland {
 
   private terrain(): void {
     this.platform(0, 900, 1480, 180)
-    // Niedrige Stufen passen zur vorhandenen Sprunghöhe von 19 Pixeln.
+    // 17-px-Stufen liegen unter der automatischen Steighöhe der Figur (19,2 px).
     for (let i = 0; i < 34; i++) this.platform(1480 + i * 18, 900 + i * 17, 18, 650 - i * 17, false)
     this.platform(2092, 1478, 680, 100, false)
     this.platform(2250, 900, 2550, 190)

@@ -3,6 +3,7 @@ export const COLLISION_CATEGORY = {
   world: 1,
   water: 2,
   player: 4,
+  enemy: 8,
 } as const
 
 const ALL_CATEGORIES = 0xffffffff

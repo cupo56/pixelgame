@@ -6,7 +6,9 @@ export interface Attack {
   readonly cooldownMs: number
   /** Kinetische Startenergie in Joule; daraus folgt die Startgeschwindigkeit. */
   readonly energyJoules: number
-  /** `direction` ist normiert. */
-  execute(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): void
+  /** Aktualisiert die Zielhand auch während vorbereiteter Angriffe. */
+  updateAim?(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): void
+  /** `direction` ist normiert; false lehnt den Angriff ohne Abklingzeit ab. */
+  execute(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): void | boolean
   destroy(): void
 }

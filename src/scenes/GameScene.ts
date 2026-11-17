@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { ElementController } from '../elements/ElementController.ts'
 import { Player } from '../entities/Player.ts'
+import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
+import { COMBAT, TEST_ENEMIES } from '../config/combat.ts'
 import { CAMP, Grenzland, LANDMARKS, LIFT, WORLD } from '../world/Grenzland.ts'
 
 const SAVE_KEY = 'elements.grenzland.v1'
@@ -8,6 +10,11 @@ const SAVE_KEY = 'elements.grenzland.v1'
 export class GameScene extends Phaser.Scene {
   private player!: Player
   private elements!: ElementController
+  private enemies: FlyingPlushEnemy[] = []
+  private healthText!: Phaser.GameObjects.Text
+  private healthBar!: Phaser.GameObjects.Graphics
+  private enemyText!: Phaser.GameObjects.Text
+  private shownHealth = -1
   private regionText!: Phaser.GameObjects.Text
   private progressText!: Phaser.GameObjects.Text
   private hintText!: Phaser.GameObjects.Text
@@ -16,6 +23,7 @@ export class GameScene extends Phaser.Scene {
   private interact!: Phaser.Input.Keyboard.Key
   private recall!: Phaser.Input.Keyboard.Key
   private mapKey!: Phaser.Input.Keyboard.Key
+  private testReset!: Phaser.Input.Keyboard.Key
   private markers: { id: string; view: Phaser.GameObjects.Container }[] = []
   private found = new Set<string>()
   private toastUntil = 0
@@ -28,10 +36,18 @@ export class GameScene extends Phaser.Scene {
     this.found = new Set()
     this.saveAvailable = true
     this.toastUntil = 0
+    this.shownHealth = -1
     this.loadProgress()
     new Grenzland(this)
     this.player = new Player(this, CAMP.x, CAMP.y)
     this.elements = new ElementController(this, this.player)
+    this.enemies = TEST_ENEMIES.map((enemy, index) => new FlyingPlushEnemy(this, enemy.x, enemy.y, enemy.color, index))
+    this.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onEnemyContact, this)
+    this.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onEnemyContact, this)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onEnemyContact, this)
+      this.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onEnemyContact, this)
+    })
     this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height)
     this.cameras.main.startFollow(this.player.body.position, true, 0.09, 0.09, 0, 35)
     this.cameras.main.setDeadzone(120, 50)
@@ -39,21 +55,34 @@ export class GameScene extends Phaser.Scene {
     this.interact = keyboard.addKey('E')
     this.recall = keyboard.addKey('R')
     this.mapKey = keyboard.addKey('TAB')
+    this.testReset = keyboard.addKey('T')
     keyboard.addCapture(['SPACE', 'TAB'])
     this.createHud()
     this.createMarkers()
     this.createMap()
-    this.toast('Willkommen im Grenzland. Entdecke seine drei Grenzsteine.', 6000)
+    this.toast('Rechts vom Lager: fliegende Plüschgegner · je 30 LP · T startet den Test neu.', 6000)
   }
 
   update(time: number, delta: number): void {
-    this.elements.update(time)
+    if (Phaser.Input.Keyboard.JustDown(this.testReset)) {
+      this.scene.restart()
+      return
+    }
+    if (!this.player.health.alive) {
+      this.player.restoreHealth()
+      this.travel(CAMP.x, CAMP.y)
+      this.toast('Zurück am Lager · Leben aufgefüllt. Mit T kannst du die Testgegner neu starten.')
+    }
+    this.elements.update()
     this.player.render(delta)
+    for (const enemy of this.enemies) enemy.render()
+    this.refreshHealth()
     const { x, y } = this.player.body.position
     this.regionText.setText(y > 1080 ? '02 / DIE KRISTALLGROTTE' : y < 620 ? '03 / DIE HIMMELSINSELN' : '01 / DAS GRENZLAND')
     if (Phaser.Input.Keyboard.JustDown(this.mapKey)) this.map.setVisible(!this.map.visible)
     this.mapPlayer.setPosition(190 + x / WORLD.width * 580, 120 + y / WORLD.height * 240)
     if (Phaser.Input.Keyboard.JustDown(this.recall) || y > WORLD.height - 70) {
+      this.player.restoreHealth()
       this.travel(CAMP.x, CAMP.y)
       this.toast('Zurück am Lagerfeuer. Deine Entdeckungen bleiben erhalten.')
     }
@@ -80,11 +109,33 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (time > this.toastUntil) {
-      this.hintText.setText(nearLift || nearCaveLift ? 'E  Aufzug benutzen' : 'A/D Laufen · SHIFT Gehen · SPACE Sprung · MAUS Zielen/Angriff · TAB Karte · R Lager')
+      this.hintText.setText(nearLift || nearCaveLift ? 'E  Aufzug benutzen' : 'A/D Laufen · SHIFT Gehen · S Bauchlage · SPACE Sprung · MAUS Angriff · TAB Karte · R Lager')
     }
   }
 
+  private onEnemyContact(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
+    for (const pair of event.pairs) {
+      const a = pair.bodyA.parent, b = pair.bodyB.parent
+      const other = a === this.player.body ? b : b === this.player.body ? a : undefined
+      if (other && this.enemies.some((enemy) => enemy.body === other && enemy.health.alive)) {
+        if (this.player.takeDamage(COMBAT.contactDamage)) this.cameras.main.shake(70, 0.002)
+      }
+    }
+  }
+
+  private refreshHealth(): void {
+    const { current, max } = this.player.health
+    if (current !== this.shownHealth) {
+      this.shownHealth = current
+      this.healthText.setText(`LEBEN  ${current} / ${max}`)
+      this.healthBar.clear().fillStyle(0x263d46).fillRect(310, 42, 160, 7)
+      this.healthBar.fillStyle(current <= 30 ? 0xe78b86 : 0x9dceaa).fillRect(310, 42, 160 * current / max, 7)
+    }
+    this.enemyText.setText(`PLÜSCHGEGNER ${this.enemies.filter((enemy) => enemy.health.alive).length} / ${TEST_ENEMIES.length}`)
+  }
+
   private travel(x: number, y: number): void {
+    this.elements.cancelPreparedAttack()
     this.matter.body.setPosition(this.player.body, { x, y })
     this.matter.body.setVelocity(this.player.body, { x: 0, y: 0 })
     this.cameras.main.centerOn(x, y)
@@ -100,13 +151,19 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: `${size}px`, color,
     }).setScrollFactor(0).setDepth(100)
     text(26, 17, 'E L E M E N T S', 20, '#e8dfbd')
+    this.healthText = text(310, 20, '', 12, '#e1e9ce')
+    this.healthBar = this.add.graphics().setScrollFactor(0).setDepth(100)
+    this.enemyText = text(500, 21, '', 10, '#d7bfdc')
+    text(500, 43, 'T · TEST NEU STARTEN', 9, '#9bb7af')
     this.regionText = text(28, 46, '', 10, '#9bb7af')
     this.progressText = text(930, 20, '', 12, '#d2dfc8').setOrigin(1, 0)
     text(930, 43, 'ERKUNDUNGS-PROTOTYP · TAB KARTE', 10, '#829f9e').setOrigin(1, 0)
     this.hintText = text(480, 463, '', 10, '#e0d5b4').setOrigin(0.5, 1)
     this.hintText.setBackgroundColor('#10232c').setPadding(10, 7)
+    text(500, 505, 'MAUSRAD: ELEMENT', 10, '#9bb7af')
     text(930, 505, '4 LUFT + SPACE: GLEITEN', 10, '#9bb7af').setOrigin(1, 0)
     this.refreshProgress()
+    this.refreshHealth()
   }
 
   private createMarkers(): void {
