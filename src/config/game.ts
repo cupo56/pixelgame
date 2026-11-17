@@ -1,0 +1,30 @@
+import Phaser from 'phaser'
+import { MATTER_GRAVITY_Y, PHYSICS_FPS } from './physics.ts'
+import { BootScene } from '../scenes/BootScene.ts'
+import { GameScene } from '../scenes/GameScene.ts'
+
+export const GAME_WIDTH = 960
+export const GAME_HEIGHT = 540
+
+export const gameConfig: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  parent: 'app',
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
+  backgroundColor: '#0b0b14',
+  pixelArt: true,
+  roundPixels: true,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  physics: {
+    default: 'matter',
+    matter: {
+      gravity: { x: 0, y: MATTER_GRAVITY_Y },
+      runner: { fps: PHYSICS_FPS },
+      debug: false,
+    },
+  },
+  scene: [BootScene, GameScene],
+}
