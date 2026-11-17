@@ -19,6 +19,7 @@ import { MetalMaterial } from '../materials/MetalMaterial.ts'
 import { ArmorPlates } from '../metal/ArmorPlates.ts'
 import { MetalBending } from '../metal/MetalBending.ts'
 import { MetalAttack } from '../attacks/MetalAttack.ts'
+import { SpikeSphere } from '../metal/SpikeSphere.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -77,7 +78,7 @@ export class ElementController {
     this.fire = new FireballAttack(scene, this.fireMaterial, () => player.getCastOrigin())
     this.water = new WaterJetAttack(scene, this.waterMaterial, () => player.getWaterPose(), this.system)
     this.air = new AirGustAttack(scene, player.body, this.system, () => player.getAirPose())
-    this.metalAttack = new MetalAttack(new MetalBending(scene, this.metal, player, this.metalPlates))
+    this.metalAttack = new MetalAttack(new MetalBending(scene, this.metal, player, this.metalPlates), new SpikeSphere(scene, player, this.metalPlates))
     this.attacks = {
       earth: this.earth,
       fire: this.fire,
@@ -99,7 +100,7 @@ export class ElementController {
     scene.input.on(Phaser.Input.Events.POINTER_UP, this.releaseAttack, this)
     scene.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.releaseAttack, this)
     scene.input.on(Phaser.Input.Events.POINTER_WHEEL, this.cycleElement, this)
-    scene.game.events.on(Phaser.Core.Events.BLUR, this.cancelPreparedAttack, this)
+    scene.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this)
 
     this.aimGraphics = scene.add.graphics().setDepth(50)
     this.refreshHud()
@@ -112,7 +113,7 @@ export class ElementController {
     this.player.setEarthCharge(this.selected.id === 'earth' ? this.earth.chargeProgress ?? null : null)
     this.player.setFireCharge(this.fire.chargeProgress ?? null)
     this.player.setWaterCharge(this.water.chargeProgress ?? null)
-    this.player.setAirCharge(this.air.chargeProgress ?? null)
+    this.player.setAirCharge(this.air.chargeProgress ?? this.metalAttack.chargeProgress ?? null)
 
     const pointer = this.scene.input.activePointer
     const target = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2
@@ -127,43 +128,58 @@ export class ElementController {
     this.drawAim(origin, direction, target)
   }
 
-  /** Teleport: angelegtes Metall reist mit (Versatz in px). */
+  /** Teleport: angelegtes Metall und eine kreisende Spitzen-Sphäre reisen mit (Versatz in px). */
   afterTeleport(dx: number, dy: number): void {
     this.metalPlates.shift(dx, dy)
+    this.metalAttack.teleport(dx, dy)
   }
 
-  /** Absturz oder Tod: die Rüstung ist verloren. */
+  /** Absturz oder Tod: Rüstung und eine geladene Sphäre sind verloren. */
   loseMetal(): void {
     this.metalPlates.shatter(true)
+    if (this.metalAttack.isCharging) {
+      this.metalAttack.cancelCharge()
+      if (this.heldCast?.element === 'metal') this.heldCast = undefined
+    }
   }
 
   /** Nach dem Zeichnen der Figur liegen frische Anker vor. */
   afterRender(): void {
     this.metalPlates.anchorsRefreshed()
+    this.metalAttack.anchorsRefreshed()
   }
 
   get selectedElement(): ElementId {
     return this.selected.id
   }
 
-  cancelPreparedAttack(): void {
+  /** Fokusverlust bricht alles ab, auch eine geladene Metall-Sphäre. */
+  private onBlur(): void { this.cancelPreparedAttack(false) }
+
+  /**
+   * Bricht vorbereitete Angriffe ab (Fokusverlust). Beim Teleport bleibt eine kreisende
+   * Metall-Sphäre samt gehaltener Taste erhalten; das Bändigen bricht ab.
+   */
+  cancelPreparedAttack(teleport = false): void {
     this.earth.cancel()
-    this.cancelChargedCasts()
+    this.cancelChargedCasts(teleport)
     this.water.cancel()
     this.air.cancel()
-    this.metalAttack.cancel()
-    this.player.resetCastPose()
+    if (!teleport) this.metalAttack.cancel()
+    if (!this.metalAttack.isCharging) this.player.resetCastPose()
   }
 
   /** Menüs verwerfen gehaltene Eingaben, bereits gestartete Angriffe pausieren mit der Welt. */
   cancelCharging(): void {
     this.earth.cancelCharge()
-    this.cancelChargedCasts()
-    this.player.resetCastPose()
+    // Die Metall-Sphäre friert mit der Szene ein und läuft nach dem Menü weiter.
+    this.cancelChargedCasts(true)
+    if (!this.metalAttack.isCharging) this.player.resetCastPose()
   }
 
-  private cancelChargedCasts(): void {
-    this.heldCast = undefined
+  private cancelChargedCasts(keepMetal = false): void {
+    if (!(keepMetal && this.heldCast?.element === 'metal')) this.heldCast = undefined
+    if (!keepMetal) this.metalAttack.cancelCharge()
     this.fire.cancelCharge()
     this.water.cancelCharge()
     this.air.cancelCharge()
@@ -206,6 +222,7 @@ export class ElementController {
     if (this.selected.id !== 'earth') {
       if (this.heldCast?.element !== this.selected.id) return
       this.beginPendingCharge()
+      const heldMs = this.scene.time.now - this.heldCast.pressedAt
       this.heldCast = undefined
       const attack = this.chargedAttack(this.selected.id)
       const charged = attack.isCharging
@@ -221,6 +238,9 @@ export class ElementController {
         const cooldown = this.selected.id === 'water' ? this.water.chargedCooldownMs : this.selected.id === 'air' ? this.air.chargedCooldownMs
           : this.selected.id === 'metal' ? this.metalAttack.chargedCooldownMs : this.fire.cooldownMs
         this.nextReadyAt.set(this.selected.id, this.scene.time.now + cooldown * progression.cooldownMultiplier(this.selected.id))
+      } else if (!charged && this.selected.id === 'metal' && heldMs >= HOLD_CHARGE_DELAY_MS) {
+        // Metall: Halten ohne Rüstung startet nichts, auch kein Bändigen beim Loslassen.
+        this.player.resetCastPose()
       } else if (!charged && direction.lengthSq() > 0) {
         this.tryAttack(this.scene.time.now)
       } else {
@@ -312,7 +332,7 @@ export class ElementController {
     this.scene.input.off(Phaser.Input.Events.POINTER_UP, this.releaseAttack, this)
     this.scene.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.releaseAttack, this)
     this.scene.input.off(Phaser.Input.Events.POINTER_WHEEL, this.cycleElement, this)
-    this.scene.game.events.off(Phaser.Core.Events.BLUR, this.cancelPreparedAttack, this)
+    this.scene.game.events.off(Phaser.Core.Events.BLUR, this.onBlur, this)
     this.cancelChargedCasts()
     for (const keyName of ELEMENT_KEY_NAMES) {
       this.scene.input.keyboard?.removeAllListeners(`keydown-${keyName}`)

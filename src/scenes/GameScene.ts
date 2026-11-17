@@ -157,7 +157,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private travel(x: number, y: number): void {
-    this.elements.cancelPreparedAttack()
+    this.elements.cancelPreparedAttack(true)
     const from = { x: this.player.body.position.x, y: this.player.body.position.y }
     this.matter.body.setPosition(this.player.body, { x, y })
     this.elements.afterTeleport(x - from.x, y - from.y)
