@@ -23,45 +23,31 @@ canvas {
   image-rendering: pixelated;
 }
 
-/* Statusleiste: echtes HTML, dadurch scharf in jeder Fenstergröße. */
-#statusbar {
+/* Statusleiste und Elementleiste: echtes HTML, dadurch scharf in jeder Fenstergröße. */
+#statusbar,
+#elementbar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 24px;
-  height: 46px;
-  padding: 0 20px;
   box-sizing: border-box;
-  background: linear-gradient(#0f2230, #0b1a24);
-  border-bottom: 1px solid #2a4a52;
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  padding: 0 20px;
+  background: #0c1c26;
   white-space: nowrap;
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
+#statusbar {
+  justify-content: space-between;
+  height: 42px;
+  border-bottom: 1px solid #2a4a52;
+  font-size: 13px;
+}
+
 #statusbar > div {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.sb-brand {
-  margin-right: 8px;
-}
-
-.sb-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.32em;
-  color: #e8dfbd;
-}
-
-.sb-sub {
-  font-size: 11px;
-  color: #829f9e;
-  letter-spacing: 0.06em;
+  align-items: center;
+  gap: 10px;
 }
 
 .sb-label {
@@ -71,22 +57,9 @@ canvas {
   color: #9bb7af;
 }
 
-.sb-region-index {
-  color: #9bb7af;
-}
-
-.sb-region-name {
-  font-weight: 700;
-  color: #f0eacb;
-}
-
-.sb-health {
-  align-items: center;
-}
-
 .sb-health-bar {
   display: inline-block;
-  width: 160px;
+  width: min(220px, 30vw);
   height: 8px;
   background: #263d46;
   border-radius: 2px;
@@ -110,70 +83,43 @@ canvas {
   font-variant-numeric: tabular-nums;
 }
 
-.sb-enemies-value {
-  color: #d7bfdc;
-  font-variant-numeric: tabular-nums;
+.sb-region-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f0eacb;
 }
 
-.sb-stones-value {
-  color: #d2dfc8;
-  font-variant-numeric: tabular-nums;
+#elementbar {
+  justify-content: center;
+  gap: clamp(12px, 4vw, 48px);
+  height: 44px;
+  border-top: 1px solid #2a4a52;
+  font-size: 14px;
 }
 
-.sb-stones-note {
+.eb-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  color: var(--element-color);
+  opacity: 0.45;
+  transition: opacity 120ms, background-color 120ms;
+}
+
+.eb-item.is-active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--element-color) 16%, transparent);
+  box-shadow: inset 0 -2px 0 var(--element-color);
+}
+
+.eb-key {
   font-size: 11px;
-  color: #829f9e;
+  opacity: 0.8;
 }
 
-.sb-keys {
-  margin-left: auto;
-  font-size: 11px;
-  color: #829f9e;
-}
-
-/* Nebenangaben weichen nach und nach, damit Leben und Ort nie abgeschnitten werden. */
-@media (max-width: 1500px) {
-  .sb-sub {
-    display: none;
-  }
-}
-
-@media (max-width: 1350px) {
-  .sb-stones-note {
-    display: none;
-  }
-}
-
-/* `#statusbar >` nötig: die Grundregel `#statusbar > div` hat ID-Spezifität. */
-@media (max-width: 1250px) {
-  #statusbar > .sb-keys {
-    display: none;
-  }
-}
-
-@media (max-width: 1000px) {
-  #statusbar {
-    gap: 16px;
-    font-size: 12px;
-  }
-
-  .sb-health-bar {
-    width: 110px;
-  }
-
-  #statusbar > .sb-enemies,
-  #statusbar > .sb-stones {
-    display: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .sb-title {
-    font-size: 13px;
-    letter-spacing: 0.2em;
-  }
-
-  .sb-health-bar {
-    width: 70px;
-  }
+.eb-item.is-active .eb-label {
+  font-weight: 700;
 }
