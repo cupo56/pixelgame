@@ -4,6 +4,7 @@ import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, freezeEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import { impactRing } from '../effects/impact.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
@@ -215,6 +216,7 @@ export class WaterWhipAttack {
         // Die Peitsche trifft Stoffe als Wassermasse (löscht Feuer, nässt Erde).
         if (this.system.whipContact(body, whip.charge >= 1 ? R.chargedWhipWaterKg : R.whipWaterKg, point)) { whip.hitTargets.add(body); continue }
         if (!damageEnemy(body, whip.damage)) continue
+        impactRing(this.scene, body.position.x, body.position.y, 0x3fa7ff)
         whip.hitTargets.add(body)
         const push = metersPerSecondToMatter(3 + whip.charge * 3)
         this.scene.matter.body.setVelocity(body, {

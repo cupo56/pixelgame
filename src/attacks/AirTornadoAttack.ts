@@ -4,6 +4,7 @@ import { GRAVITY_MS2, PHYSICS_FPS, metersPerSecondToMatter, metersToPixels } fro
 import { damageEnemy, holdEnemyInWind, isEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import { impactRing } from '../effects/impact.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const CHARGE_MS = 2000
@@ -198,6 +199,7 @@ export class AirTornadoAttack {
         if (this.scene.matter.query.ray(terrain, { x: tornado.x, y: centerY }, body.position, 2).length) continue
         if (rock ? !this.system.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)))) continue
         tornado.seen.add(body)
+        if (!rock) impactRing(this.scene, body.position.x, body.position.y, COLORS[1])
         if (!rock && !isEnemy(body)) continue
         tornado.captured.set(body, { angle: Math.atan2(dy, dx), extent, rock, elapsed: 0 })
       }

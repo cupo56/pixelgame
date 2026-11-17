@@ -5,6 +5,7 @@ import { AIR_DRAG, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { SPARK_TEXTURE, dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import { impactRing } from '../effects/impact.ts'
 import { approachAmbient, glowFraction, metalEdgeM, solidHeatingK } from './thermo.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
@@ -199,6 +200,7 @@ export class MetalMaterial {
     if (now - (block.lastBurnAt.get(other) ?? -Infinity) < R.glowContactIntervalMs) return
     if (damageEnemy(other, R.glowContactDamage)) {
       block.lastBurnAt.set(other, now)
+      impactRing(this.scene, other.position.x, other.position.y, 0xff8a1f)
       screenShake(this.scene, 0.002, 60)
     }
   }

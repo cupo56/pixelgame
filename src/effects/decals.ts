@@ -58,3 +58,14 @@ export const scorchDecal = (scene: Phaser.Scene, x: number, y: number, radiusPx:
   }
   scene.tweens.add({ targets: g, alpha: 0, duration: 6000, onComplete: () => g.destroy() })
 }
+
+/** Risse im Gelände an einer Aufprallstelle; blenden nach einer Sekunde aus. */
+export const crackDecal = (scene: Phaser.Scene, x: number, y: number, spreadPx = 15): void => {
+  const g = scene.add.graphics().setDepth(4)
+  const cx = Math.round(x), cy = Math.round(y)
+  g.lineStyle(2, 0x4a3f33).lineBetween(cx - spreadPx, cy + 1, cx + spreadPx - 1, cy + 1)
+  g.lineStyle(1, 0xd0ae78).lineBetween(cx - spreadPx + 2, cy - 1, cx - spreadPx * 0.3, cy - 2)
+  g.lineStyle(1, 0x4a3f33).lineBetween(cx - spreadPx * 0.6, cy + 1, cx - spreadPx * 0.85, cy + 6)
+  g.lineBetween(cx + spreadPx * 0.4, cy + 1, cx + spreadPx * 0.75, cy + 5)
+  scene.time.delayedCall(500, () => fadeOut(scene, g, 500))
+}

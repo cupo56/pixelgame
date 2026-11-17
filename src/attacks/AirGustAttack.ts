@@ -1,7 +1,8 @@
-import type Phaser from 'phaser'
+import Phaser from 'phaser'
 import type { Attack } from './Attack.ts'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
-import { coneBurst } from '../effects/particles.ts'
+import { coneBurst, dust } from '../effects/particles.ts'
+import { impactRing } from '../effects/impact.ts'
 import { screenShake } from '../effects/juice.ts'
 import { damageEnemy } from '../combat/damage.ts'
 import { COMBAT } from '../config/combat.ts'
@@ -17,6 +18,8 @@ const GUST_SHAKE = 0.003
 const WIND_COLORS = [0xffffff, 0xcfe9f2, 0x8fc4d6]
 const STREAK_COUNT = 28
 const STREAK_SPEED_PX = 420
+const ARC_COUNT = 4
+const ARC_MS = 240
 
 /** Windstoß im Kegel: drückt bewegliche Körper in Zielrichtung und stößt den Spieler zurück. */
 export class AirGustAttack implements Attack {
@@ -52,6 +55,8 @@ export class AirGustAttack implements Attack {
     const originY = origin.y ?? 0
     this.pushBodies(originX, originY, direction)
     this.recoil(direction)
+    this.windArcs(originX, originY, direction)
+    this.groundDust(originX, originY, direction)
     coneBurst(
       this.scene,
       originX,
@@ -96,12 +101,49 @@ export class AirGustAttack implements Attack {
         continue
       }
       if (body.isSensor) continue
-      damageEnemy(body, Math.ceil(COMBAT.airDamage * strength))
+      if (damageEnemy(body, Math.ceil(COMBAT.airDamage * strength))) impactRing(this.scene, body.position.x, body.position.y, WIND_COLORS[1])
       const deltaV = metersPerSecondToMatter((IMPULSE_NS * strength) / body.mass)
       this.scene.matter.body.setVelocity(body, {
         x: body.velocity.x + direction.x * deltaV,
         y: body.velocity.y + direction.y * deltaV,
       })
+    }
+  }
+
+  /** Gebogene Windstreifen laufen vom Ursprung nach außen und blenden aus. */
+  private windArcs(originX: number, originY: number, direction: Phaser.Math.Vector2): void {
+    const g = this.scene.add.graphics().setDepth(20)
+    const aim = Math.atan2(direction.y, direction.x)
+    const state = { t: 0 }
+    const rangePx = metersToPixels(RANGE_M)
+    this.scene.tweens.add({
+      targets: state, t: 1, duration: ARC_MS,
+      onUpdate: () => {
+        g.clear()
+        for (let i = 0; i < ARC_COUNT; i++) {
+          const lead = (i + 1) / ARC_COUNT
+          const distance = rangePx * (0.15 + 0.85 * state.t) * lead
+          const half = HALF_ANGLE_RAD * (0.35 + 0.65 * lead)
+          g.lineStyle(i % 2 ? 1 : 2, WIND_COLORS[i % 3], (1 - state.t) * 0.85)
+          g.beginPath().arc(originX, originY, distance, aim - half, aim + half).strokePath()
+        }
+      },
+      onComplete: () => g.destroy(),
+    })
+  }
+
+  /** Staub, der vom Boden im Kegel mitgerissen wird. */
+  private groundDust(originX: number, originY: number, direction: Phaser.Math.Vector2): void {
+    const rangePx = metersToPixels(RANGE_M)
+    const minCos = Math.cos(HALF_ANGLE_RAD)
+    for (const body of this.scene.matter.world.getAllBodies()) {
+      if (!body.isStatic || body.isSensor || body.label !== 'terrain') continue
+      const topY = body.bounds.min.y
+      const x = Phaser.Math.Clamp(originX + direction.x * rangePx * 0.5, body.bounds.min.x, body.bounds.max.x)
+      const dx = x - originX, dy = topY - originY
+      const distance = Math.hypot(dx, dy)
+      if (distance === 0 || distance > rangePx || (dx * direction.x + dy * direction.y) / distance < minCos) continue
+      dust(this.scene, x, topY - 1, 6, 55)
     }
   }
 

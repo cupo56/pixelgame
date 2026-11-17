@@ -4,6 +4,7 @@ import { REACTIONS as R } from '../config/reactions.ts'
 import { AIR_DRAG, matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { dust, sandCloud } from '../effects/particles.ts'
+import { impactRing } from '../effects/impact.ts'
 import { approachAmbient, grainPlan, solidHeatingK } from './thermo.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
@@ -195,7 +196,10 @@ export class SandMaterial {
     if (grain?.kind !== 'sand' || !this.grains.has(grain) || !grain.airborne || !isEnemy(other) || grain.hitTargets.has(other)) return
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < R.sandCloudDamageSpeedMs) return
-    if (damageEnemy(other, R.sandCloudDamage)) grain.hitTargets.add(other)
+    if (damageEnemy(other, R.sandCloudDamage)) {
+      grain.hitTargets.add(other)
+      impactRing(this.scene, other.position.x, other.position.y, 0xd9c3a0)
+    }
   }
 
   private onContact(event: Phaser.Physics.Matter.Events.CollisionActiveEvent): void {

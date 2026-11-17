@@ -5,6 +5,7 @@ import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from
 import { damageEnemy } from '../combat/damage.ts'
 import { drawIceSheet, drawIceShard, fadeOut } from '../effects/decals.ts'
 import { burst } from '../effects/particles.ts'
+import { impactRing } from '../effects/impact.ts'
 import { approachAmbient } from './thermo.ts'
 import { steamCloud } from './SteamEffect.ts'
 import type { Substance } from './Substance.ts'
@@ -190,7 +191,7 @@ export class IceMaterial {
     const shard = this.system.registry.get(body)
     if (!shard || !this.shards.has(shard as IceShard) || other.isSensor) return
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
-    if (speedMs >= R.iceShardDamageSpeedMs) damageEnemy(other, R.iceShardDamage)
+    if (speedMs >= R.iceShardDamageSpeedMs && damageEnemy(other, R.iceShardDamage)) impactRing(this.scene, other.position.x, other.position.y, 0x9edfff)
     if (speedMs >= R.iceShardShatterSpeedMs) this.shatter(shard)
   }
 }
