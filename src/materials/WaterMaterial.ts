@@ -89,6 +89,13 @@ export class WaterMaterial {
     return droplet
   }
 
+  /** Tropfen wird von einem Festkörper aufgenommen: kleiner Spritzer, Körper weg. */
+  splashAway(droplet: Substance): void {
+    if (!this.droplets.has(droplet as Droplet)) return
+    burst(this.scene, droplet.body.position.x, droplet.body.position.y, WATER_COLORS, 3, 50)
+    this.system.remove(droplet)
+  }
+
   /** Tropfen verdampft: Dampfwolke, Körper weg. */
   evaporate(droplet: Substance): void {
     if (!this.droplets.has(droplet as Droplet)) return

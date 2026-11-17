@@ -83,6 +83,23 @@ export const steam = (scene: Phaser.Scene, x: number, y: number, count: number):
   scene.time.delayedCall(1300, () => emitter.destroy())
 }
 
+/** Feiner Sandschleier in Windrichtung. */
+export const sandCloud = (scene: Phaser.Scene, x: number, y: number, direction: { x: number; y: number }, count: number): void => {
+  const aimDeg = Math.atan2(direction.y, direction.x) * RAD_TO_DEG
+  const emitter = scene.add.particles(x, y, SPARK_TEXTURE, {
+    lifespan: { min: 300, max: 700 },
+    angle: { min: aimDeg - 18, max: aimDeg + 18 },
+    speed: { min: 60, max: 160 },
+    gravityY: GRAVITY_MS2 * PIXELS_PER_METER * 0.3,
+    scale: { start: 0.9, end: 0.3 },
+    alpha: { start: 0.8, end: 0 },
+    color: [0xd9c3a0, 0xb8a079],
+    emitting: false,
+  }).setDepth(7)
+  emitter.explode(count)
+  scene.time.delayedCall(BURST_CLEANUP_MS, () => emitter.destroy())
+}
+
 /** Einmalige Funken-/Staubexplosion; Partikel fallen mit echter Erdbeschleunigung. */
 export const burst = (
   scene: Phaser.Scene,

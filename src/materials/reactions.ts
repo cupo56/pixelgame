@@ -52,6 +52,20 @@ const iceMeetsEarth: ReactionHandler = (ice, _earth, ctx) => {
   if (ice.body.label === 'ice') ctx.system.materials.ice?.shatter(ice)
 }
 
+/** Wasser nässt den Block; ab der Nässeschwelle zerfällt er zu Sand. */
+const waterMeetsEarth: ReactionHandler = (water, earth, ctx) => {
+  const { water: waterMaterial, earth: earthMaterial } = ctx.system.materials
+  if (!waterMaterial || !earthMaterial || water.body.label !== 'water') return
+  const kg = water.massKg
+  waterMaterial.splashAway(water)
+  earthMaterial.wet(earth, kg)
+}
+
+/** Sand wird nass; der Tropfen versickert. */
+const waterMeetsSand: ReactionHandler = (water, _sand, ctx) => {
+  if (water.body.label === 'water') ctx.system.materials.water?.splashAway(water)
+}
+
 /**
  * Die Reaktionsmatrix des Designs. Die Materialien füllen die Handler über
  * `setReaction`; hier stehen nur die Zellen, die es überhaupt gibt.
@@ -62,8 +76,8 @@ export const REACTIONS = new Map<string, ReactionHandler>([
   ['fire:earth', noop],
   ['fire:sand', noop],
   ['fire:metal', noop],
-  ['water:earth', noop],
-  ['water:sand', noop],
+  ['water:earth', waterMeetsEarth],
+  ['water:sand', waterMeetsSand],
   ['water:metal', noop],
   ['ice:earth', iceMeetsEarth],
 ])

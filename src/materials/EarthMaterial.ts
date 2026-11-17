@@ -6,6 +6,7 @@ import { matterToMetersPerSecond, metersPerSecondToMatter } from '../config/phys
 import { damageEnemy } from '../combat/damage.ts'
 import { dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import { sandWettingThresholdKg } from './thermo.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -19,6 +20,8 @@ const AIR_LIFT_MS = 4.5
 /** Masse des 0,5-m-Referenzblocks, auf die der Windschub bezogen ist. */
 const REFERENCE_MASS_KG = 0.5 ** 3 * R.earthDensityKgM3
 export const LAUNCH_MASK = (ALL_CATEGORIES & ~COLLISION_CATEGORY.player) >>> 0
+const ROCK_COLOR = 0x947653
+const WET_ROCK_COLOR = 0x5e4b3a
 
 export interface Rock extends Substance {
   readonly kind: 'earth'
@@ -44,9 +47,11 @@ export class EarthMaterial {
     this.scene = scene
     this.system = system
     this.playerBody = playerBody
+    system.attach('earth', this)
     this.offStep = system.onStep(this.step.bind(this))
     system.setWindHandler('earth', (s, direction, strength) => this.pushWithAir(s as Rock, direction, strength))
     system.setCaptureHandlers('earth', (s) => this.capture(s as Rock), (s) => this.release(s as Rock))
+    system.setWhipHandler('earth', (s, waterKg) => { this.wet(s, waterKg); return true })
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
 
@@ -68,6 +73,19 @@ export class EarthMaterial {
     this.rocks.add(rock)
     this.system.registry.register(rock)
     return rock
+  }
+
+  /** Nässe aufnehmen; ab der Oberflächenschwelle zerfällt der Block zu Sand. */
+  wet(substance: Substance, waterKg: number): void {
+    const rock = substance as Rock
+    if (!this.rocks.has(rock)) return
+    rock.wetnessKg += waterKg
+    const threshold = sandWettingThresholdKg(rock.edgeM)
+    const fraction = Math.min(1, rock.wetnessKg / threshold)
+    const color = Phaser.Display.Color.Interpolate.ColorWithColor(
+      Phaser.Display.Color.IntegerToColor(ROCK_COLOR), Phaser.Display.Color.IntegerToColor(WET_ROCK_COLOR), 1, fraction)
+    rock.shape.setFillStyle(Phaser.Display.Color.GetColor(color.r, color.g, color.b))
+    if (rock.wetnessKg >= threshold) this.system.materials.sand?.fromEarth(rock, rock.edgeM)
   }
 
   destroy(): void {

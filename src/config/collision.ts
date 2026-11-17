@@ -23,5 +23,6 @@ export const METAL_LAUNCH_MASK = WITHOUT_PLAYER
 
 /** Gleiche negative Gruppe: Körper dieser Art kollidieren nie untereinander. */
 export const WATER_GROUP = -1
-export const SAND_GROUP = -2
 export const ICE_GROUP = -3
+/** Sandkörner kollidieren untereinander, sonst gäbe es keine Haufen. */
+export const SAND_GROUP = 0

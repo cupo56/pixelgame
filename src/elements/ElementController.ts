@@ -12,6 +12,7 @@ import { FireMaterial } from '../materials/FireMaterial.ts'
 import { WaterMaterial } from '../materials/WaterMaterial.ts'
 import { Puddle } from '../materials/Puddle.ts'
 import { IceMaterial } from '../materials/IceMaterial.ts'
+import { SandMaterial } from '../materials/SandMaterial.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -36,6 +37,7 @@ export class ElementController {
   private readonly waterMaterial: WaterMaterial
   private readonly puddles: Puddle
   private readonly ice: IceMaterial
+  private readonly sand: SandMaterial
   private readonly earth: EarthRockAttack
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
@@ -55,6 +57,7 @@ export class ElementController {
     this.fireMaterial = new FireMaterial(scene, this.system)
     this.puddles = new Puddle(scene, this.system)
     this.ice = new IceMaterial(scene, this.system)
+    this.sand = new SandMaterial(scene, this.system)
     this.waterMaterial = new WaterMaterial(scene, this.system, this.puddles)
     this.earth = new EarthRockAttack(scene, player.body, this.earthMaterial, (charge) => {
       // Kleine/teilgeladene Blöcke brauchen nach dem Loslassen noch Zeit zum Anheben.
@@ -300,6 +303,7 @@ export class ElementController {
     this.waterMaterial.destroy()
     this.puddles.destroy()
     this.ice.destroy()
+    this.sand.destroy()
     this.system.destroy()
   }
 }

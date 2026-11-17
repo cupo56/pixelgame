@@ -72,6 +72,10 @@ describe('Erde, Sand, Metall', () => {
     expect(sandWettingThresholdKg(1.5)).toBe(27)
   })
 
+  it('der kleine Block zerfällt nach 20 Tropfen', () => {
+    expect(Math.ceil(sandWettingThresholdKg(0.5) / R.dropletMassKg)).toBe(20)
+  })
+
   it('Kornplan: 10 Körner für 0,5 m, Deckel 60, mindestens 4 bei vollem Budget, Masse erhalten', () => {
     expect(grainPlan(0.5, 999).count).toBe(10)
     expect(grainPlan(1.5, 999).count).toBe(60)
