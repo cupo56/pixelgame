@@ -198,7 +198,7 @@ export class MetalMaterial {
     if (block?.kind !== 'metal' || !this.blocks.has(block) || block.temperatureC < R.metalGlowC || !isEnemy(other)) return
     const now = this.scene.time.now
     if (now - (block.lastBurnAt.get(other) ?? -Infinity) < R.glowContactIntervalMs) return
-    if (damageEnemy(other, R.glowContactDamage)) {
+    if (damageEnemy(other, R.glowContactDamage, 'fire')) {
       block.lastBurnAt.set(other, now)
       impactRing(this.scene, other.position.x, other.position.y, 0xff8a1f)
       screenShake(this.scene, 0.002, 60)

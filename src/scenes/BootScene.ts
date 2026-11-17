@@ -12,6 +12,6 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     createSparkTexture(this)
-    this.scene.start('GameScene')
+    this.scene.start('MenuScene')
   }
 }

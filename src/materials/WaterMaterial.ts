@@ -246,7 +246,7 @@ export class WaterMaterial {
       (droplet as Droplet).groundedAt = now
       return
     }
-    if (damageEnemy(other, COMBAT.waterDamage)) impactRing(this.scene, candidate.position.x, candidate.position.y, WATER_COLOR)
+    if (damageEnemy(other, COMBAT.waterDamage, 'water')) impactRing(this.scene, candidate.position.x, candidate.position.y, WATER_COLOR)
     this.system.remove(droplet)
   }
 }

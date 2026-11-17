@@ -14,6 +14,7 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(os.environ.get('ELEMENTS_TEST_URL', 'http://127.0.0.1:5174/'), timeout=15000)
     page.wait_for_function("document.querySelector('canvas') !== null")
+    page.get_by_role("button", name="Spiel starten").click()
     page.wait_for_function("async () => window.elementsGame.scene.isActive('GameScene')")
     page.evaluate("async () => { window.testScene = window.elementsGame.scene.getScene('GameScene') }")
     page.wait_for_timeout(900)
@@ -40,11 +41,11 @@ with sync_playwright() as p:
     assert abs(state()['y'] - 871) < 5, state()
     print('Loaded camp.', flush=True)
     page.screenshot(path=str(OUTPUT / 'grenzland-lager.png'))
-    page.keyboard.press('Tab', delay=80)
+    page.keyboard.press('m', delay=80)
     page.wait_for_timeout(100)
     assert state()['map'] is True
     page.screenshot(path=str(OUTPUT / 'grenzland-karte.png'))
-    page.keyboard.press('Tab', delay=80)
+    page.keyboard.press('m', delay=80)
 
     # Walk the actual route from the camp into the grotto, without teleporting.
     page.evaluate("""() => {
@@ -123,6 +124,7 @@ with sync_playwright() as p:
     assert abs(state()['x'] - 360) < 5, state()
     assert len(state()['found']) == 3, state()
     page.reload()
+    page.get_by_role("button", name="Spiel starten").click()
     page.wait_for_timeout(900)
     page.evaluate("async () => { window.testScene = window.elementsGame.scene.getScene('GameScene') }")
     assert len(state()['found']) == 3, state()

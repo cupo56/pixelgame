@@ -12,6 +12,7 @@ export interface StatusBarState {
 const ROOT_ID = 'statusbar'
 
 export class StatusBar {
+  private readonly root: HTMLElement
   private static instance?: StatusBar
   private readonly healthValue: HTMLElement
   private readonly healthFill: HTMLElement
@@ -34,6 +35,7 @@ export class StatusBar {
   private constructor() {
     const existing = document.getElementById(ROOT_ID)
     const root = existing ?? document.createElement('header')
+    this.root = root
     root.id = ROOT_ID
     root.innerHTML = `
       <div class="sb-brand"><span class="sb-title">ELEMENTS</span><span class="sb-sub">Erkundungs-Prototyp</span></div>
@@ -41,7 +43,8 @@ export class StatusBar {
       <div class="sb-health"><span class="sb-label">Leben</span><span class="sb-health-bar"><span class="sb-health-fill"></span></span><span class="sb-health-value"></span></div>
       <div class="sb-enemies"><span class="sb-label">Plüschgegner</span><span class="sb-enemies-value"></span></div>
       <div class="sb-stones"><span class="sb-label">Grenzsteine</span><span class="sb-stones-value"></span><span class="sb-stones-note"></span></div>
-      <div class="sb-keys">TAB Karte · R Lager · T Test neu</div>
+      <button type="button" class="sb-skills">K · Skilltrees</button>
+      <div class="sb-keys">M Karte · Esc Menü</div>
     `
     if (!existing) document.body.prepend(root)
     const pick = (selector: string): HTMLElement => {
@@ -57,6 +60,14 @@ export class StatusBar {
     this.stonesValue = pick('.sb-stones-value')
     this.stonesNote = pick('.sb-stones-note')
     this.render()
+  }
+
+  setVisible(visible: boolean): void { this.root.style.display = visible ? '' : 'none' }
+
+  onSkills(callback: () => void): () => void {
+    const button = this.root.querySelector<HTMLButtonElement>('.sb-skills')!
+    button.addEventListener('click', callback)
+    return () => button.removeEventListener('click', callback)
   }
 
   /** Aktueller Ortsname, z. B. für Browserprüfungen. */

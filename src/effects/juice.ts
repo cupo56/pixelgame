@@ -1,4 +1,5 @@
 import type Phaser from 'phaser'
+import { settings } from '../settings/Settings.ts'
 
 const DEFAULT_SHAKE_MS = 120
 const DEFAULT_SHAKE_INTENSITY = 0.01
@@ -10,7 +11,7 @@ export const screenShake = (
   intensity = DEFAULT_SHAKE_INTENSITY,
   durationMs = DEFAULT_SHAKE_MS,
 ): void => {
-  scene.cameras.main.shake(durationMs, intensity)
+  if (settings.cameraShake) scene.cameras.main.shake(durationMs, intensity)
 }
 
 /** Kurzes Einfrieren der Physik für wuchtige Treffer. */

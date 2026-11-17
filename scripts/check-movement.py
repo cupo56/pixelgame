@@ -9,6 +9,7 @@ with sync_playwright() as p:
     errors=[]
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto('http://127.0.0.1:5174/')
+    page.get_by_role("button", name="Spiel starten").click()
     page.wait_for_function("async () => window.elementsGame.scene.isActive('GameScene')")
     page.evaluate("async () => { window.s = window.elementsGame.scene.getScene('GameScene') }")
     page.wait_for_timeout(600)

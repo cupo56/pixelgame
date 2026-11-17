@@ -11,6 +11,16 @@ npm run dev
 
 Die im Terminal angezeigte lokale URL öffnen. `npm run build` prüft TypeScript und erstellt den Produktionsbuild in `dist`.
 
+## Startmenü und Fortschritt
+
+Das Spiel startet auf einem eigenen Startbildschirm mit **Spiel starten** und **Optionen**. Die Optionen enthalten einen gespeicherten Schalter für Kamerawackeln, Vollbild und eine Übersicht der Steuerung. **Esc** beendet die laufende Spielszene und öffnet den Startbildschirm, auch aus dem Skilltree. Ein erneuter Spielstart beginnt am Lager mit frischen Testgegnern; Elementfortschritt und entdeckte Grenzsteine bleiben erhalten.
+
+Mit **K** oder dem **Skilltree-Button** in der oberen Statusleiste öffnest du die vier Elementpfade. Die Welt samt Physik und Szenen-Timern pausiert bis zum Schließen. Jedes Element besitzt eigene Erfahrung, Level, Skillpunkte und Ränge. Treffer vergeben EP für das verursachende Element, insgesamt höchstens 30 EP pro Gegner; Überkill, Tropfenfolgen und wiederholter Materialkontakt erzeugen keine zusätzlichen EP über dieses Budget. Materialtreffer zählen zum zugehörigen Element, z. B. Eis zu Wasser und Sand zu Erde. Der erste Levelaufstieg benötigt 60 EP, jeder weitere 30 EP mehr.
+
+Jedes Element startet auf Level 1 mit einem Skillpunkt. Pro Levelaufstieg kommt ein weiterer Punkt hinzu. **Elementkraft** erhöht den Schaden um 5 % pro Rang (maximal drei Ränge, auf ganze Lebenspunkte gerundet). **Fokus** verkürzt Abklingzeiten um 5 % pro Rang (maximal zwei Ränge, ab Element-Level 2 und nach Elementkraft). Ein Rang kostet einen Punkt. Voraussetzungen, Punktekosten und Ranglimits werden im Fortschrittsmodell geprüft.
+
+Bestehende Angriffe und Kombinationen bleiben verfügbar. Die Zweige **Neue Fähigkeit** und **Element-Combo** sind sichtbare, noch nicht kaufbare Plätze für die später festgelegten Fähigkeiten. Die datenbasierten Knoten und die Freischaltungsabfrage in `src/progression` bilden die Grundlage dafür. Fortschritt wird getrennt von den Grenzsteinen unter `elements.skills.v1` lokal gespeichert; bei gesperrtem Speicher bleibt er für die Sitzung verfügbar und die Oberfläche zeigt dies an. **T** startet nur die Testwelt neu und löscht keine Skillpunkte oder gekauften Ränge.
+
 ## Das Grenzland
 
 Die handgebaute Region verbindet Grenzwacht und alten Hain an der Oberfläche mit einer Kristallgrotte und einer Kette schwebender Inseln. Finde die drei leuchtenden Grenzsteine. Entdeckungen werden im Local Storage des jeweiligen Browsers gespeichert; beim Neustart beginnt die Figur wieder am Lager. Wenn Speichern blockiert ist, bleiben Entdeckungen nur in der Sitzung erhalten.
@@ -30,7 +40,9 @@ Die handgebaute Region verbindet Grenzwacht und alten Hain an der Oberfläche mi
 | Mausrad runter / hoch | Nächstes / vorheriges Element; wechselt im Kreis durch Erde → Feuer → Wasser → Luft |
 | Luft + Sprung halten | Gleiten; im markierten Aufwind aufsteigen |
 | E | Aufzug in der Nähe benutzen |
-| Tab | Übersichtskarte öffnen / schließen |
+| M | Übersichtskarte öffnen / schließen |
+| K / Skilltree-Button | Element-Skilltrees öffnen / schließen; die Spielwelt pausiert währenddessen |
+| Esc | Spiel verlassen und zum Startbildschirm zurückkehren |
 | R | Zum Lager zurückkehren und Leben auffüllen |
 | T | Test neu starten: drei Gegner mit je 30 LP, Spieler mit 100 LP |
 
@@ -110,3 +122,7 @@ python scripts/check-grenzland.py
 ```
 
 Die URL muss dem laufenden Entwicklungsserver entsprechen. Ohne Umgebungsvariable verwendet das Skript Port 5174.
+
+### Skilltree- und Menüprüfung
+
+`npm test` prüft unter anderem Levelaufstiege, Punktverbrauch, Voraussetzungen, Speicherdaten und die EP-Vergabe. `scripts/check-skills-menu.mjs` prüft im Browser Start/Optionen, M/K/Esc, Pausierung, tatsächliche Schadens- und Abklingzeitänderungen, Käufe, Neustarts und Speicherung. Dafür wird eine vorhandene Playwright-Installation mit Chromium benötigt. `PLAYWRIGHT_MODULE` kann auf dessen Modul verweisen, `CHROMIUM_PATH` optional auf den Browser und `ELEMENTS_TEST_URL` auf den Entwicklungsserver (Standard: Port 5174). Screenshots landen im ignorierten Ordner `artifacts`.

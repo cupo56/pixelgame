@@ -6,6 +6,7 @@ import { FireballAttack } from '../attacks/FireballAttack.ts'
 import { WaterJetAttack } from '../attacks/WaterJetAttack.ts'
 import { ELEMENTS, type ElementId, type ElementInfo } from '../config/elements.ts'
 import type { Player } from '../entities/Player.ts'
+import { progression } from '../progression/Progression.ts'
 import { ReactionSystem } from '../materials/ReactionSystem.ts'
 import { EarthMaterial } from '../materials/EarthMaterial.ts'
 import { FireMaterial } from '../materials/FireMaterial.ts'
@@ -139,6 +140,13 @@ export class ElementController {
     this.player.resetCastPose()
   }
 
+  /** Menüs verwerfen gehaltene Eingaben, bereits gestartete Angriffe pausieren mit der Welt. */
+  cancelCharging(): void {
+    this.earth.cancelCharge()
+    this.cancelChargedCasts()
+    this.player.resetCastPose()
+  }
+
   private cancelChargedCasts(): void {
     this.heldCast = undefined
     this.fire.cancelCharge()
@@ -174,7 +182,7 @@ export class ElementController {
     direction.normalize()
     if (this.scene.time.now < (this.nextReadyAt.get('earth') ?? 0)) return
     if (this.earth.begin(origin, direction)) {
-      this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs)
+      this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs * progression.cooldownMultiplier('earth'))
     }
   }
 
@@ -196,7 +204,7 @@ export class ElementController {
       if (charged && attack.release(origin, direction)) {
         if (this.selected.id === 'air') this.player.cast('air-charged')
         const cooldown = this.selected.id === 'water' ? this.water.chargedCooldownMs : this.selected.id === 'air' ? this.air.chargedCooldownMs : this.fire.cooldownMs
-        this.nextReadyAt.set(this.selected.id, this.scene.time.now + cooldown)
+        this.nextReadyAt.set(this.selected.id, this.scene.time.now + cooldown * progression.cooldownMultiplier(this.selected.id))
       } else if (!charged && direction.lengthSq() > 0) {
         this.tryAttack(this.scene.time.now)
       } else {
@@ -209,7 +217,7 @@ export class ElementController {
     const origin = this.player.aimAt(target, this.selected.color)
     this.earth.updateAim(origin, target.clone().subtract(origin))
     if (this.earth.release()) {
-      this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs)
+      this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs * progression.cooldownMultiplier('earth'))
     }
   }
 
@@ -256,7 +264,7 @@ export class ElementController {
       this.player.resetCastPose()
       return
     }
-    this.nextReadyAt.set(this.selected.id, timeMs + attack.cooldownMs)
+    this.nextReadyAt.set(this.selected.id, timeMs + attack.cooldownMs * progression.cooldownMultiplier(this.selected.id))
   }
 
   private drawAim(

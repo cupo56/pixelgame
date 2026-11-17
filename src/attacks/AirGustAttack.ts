@@ -101,7 +101,7 @@ export class AirGustAttack implements Attack {
         continue
       }
       if (body.isSensor) continue
-      if (damageEnemy(body, Math.ceil(COMBAT.airDamage * strength))) impactRing(this.scene, body.position.x, body.position.y, WIND_COLORS[1])
+      if (damageEnemy(body, Math.ceil(COMBAT.airDamage * strength), 'air')) impactRing(this.scene, body.position.x, body.position.y, WIND_COLORS[1])
       const deltaV = metersPerSecondToMatter((IMPULSE_NS * strength) / body.mass)
       this.scene.matter.body.setVelocity(body, {
         x: body.velocity.x + direction.x * deltaV,

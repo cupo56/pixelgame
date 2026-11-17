@@ -218,13 +218,13 @@ export class EarthMaterial {
     // Glühende Erde verbrennt Gegner bei Berührung.
     if (earth.temperatureC >= R.earthGlowC && isEnemy(other) &&
       this.scene.time.now - (earth.lastBurnAt.get(other) ?? -Infinity) >= R.glowContactIntervalMs &&
-      damageEnemy(other, R.glowContactDamage)) {
+      damageEnemy(other, R.glowContactDamage, 'fire')) {
       earth.lastBurnAt.set(other, this.scene.time.now)
       impactRing(this.scene, other.position.x, other.position.y, 0xff8a1f)
     }
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < IMPACT_MIN_SPEED_MS) return
-    if (!earth.hitTargets.has(other) && damageEnemy(other, earth.damage)) {
+    if (!earth.hitTargets.has(other) && damageEnemy(other, earth.damage, 'earth')) {
       earth.hitTargets.add(other)
       impactRing(this.scene, other.position.x, other.position.y, 0xb08a5a)
       if (earth.charge >= 0.5) hitStopOnce(this.scene, 35)

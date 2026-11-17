@@ -27,6 +27,7 @@ with sync_playwright() as p:
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(os.environ.get('ELEMENTS_TEST_URL', 'http://127.0.0.1:5174/'), timeout=15000)
     page.wait_for_function("document.querySelector('canvas') !== null")
+    page.get_by_role("button", name="Spiel starten").click()
     page.wait_for_function("async () => window.elementsGame.scene.isActive('GameScene')")
     page.evaluate(HELPERS)
     page.wait_for_timeout(900)

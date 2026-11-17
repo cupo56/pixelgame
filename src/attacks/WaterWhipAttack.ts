@@ -215,7 +215,7 @@ export class WaterWhipAttack {
         if (whip.hitTargets.has(body)) continue
         // Die Peitsche trifft Stoffe als Wassermasse (löscht Feuer, nässt Erde).
         if (this.system.whipContact(body, whip.charge >= 1 ? R.chargedWhipWaterKg : R.whipWaterKg, point)) { whip.hitTargets.add(body); continue }
-        if (!damageEnemy(body, whip.damage)) continue
+        if (!damageEnemy(body, whip.damage, 'water')) continue
         impactRing(this.scene, body.position.x, body.position.y, 0x3fa7ff)
         whip.hitTargets.add(body)
         const push = metersPerSecondToMatter(3 + whip.charge * 3)

@@ -131,6 +131,19 @@ canvas {
   color: #829f9e;
 }
 
+.sb-skills {
+  flex: 0 0 auto;
+  border: 1px solid #41606a;
+  border-radius: 4px;
+  padding: 6px 9px;
+  background: #17303c;
+  color: #e8dfbd;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sb-skills:hover, .sb-skills:focus-visible { background: #274a56; outline: 2px solid #9dceaa; outline-offset: 2px; }
+
 /* Nebenangaben weichen nach und nach, damit Leben und Ort nie abgeschnitten werden. */
 @media (max-width: 1500px) {
   .sb-sub {

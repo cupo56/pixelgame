@@ -191,7 +191,7 @@ export class IceMaterial {
     const shard = this.system.registry.get(body)
     if (!shard || !this.shards.has(shard as IceShard) || other.isSensor) return
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
-    if (speedMs >= R.iceShardDamageSpeedMs && damageEnemy(other, R.iceShardDamage)) impactRing(this.scene, other.position.x, other.position.y, 0x9edfff)
+    if (speedMs >= R.iceShardDamageSpeedMs && damageEnemy(other, R.iceShardDamage, 'water')) impactRing(this.scene, other.position.x, other.position.y, 0x9edfff)
     if (speedMs >= R.iceShardShatterSpeedMs) this.shatter(shard)
   }
 }

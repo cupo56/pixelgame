@@ -5,6 +5,10 @@ import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
 import { COMBAT, TEST_ENEMIES } from '../config/combat.ts'
 import { CAMP, Grenzland, LANDMARKS, LIFT, WORLD } from '../world/Grenzland.ts'
 import { StatusBar } from '../ui/StatusBar.ts'
+import { SkillTreePanel } from '../ui/SkillTreePanel.ts'
+import { progression } from '../progression/Progression.ts'
+import { ELEMENTS } from '../config/elements.ts'
+import { screenShake } from '../effects/juice.ts'
 
 const SAVE_KEY = 'elements.grenzland.v1'
 
@@ -25,10 +29,12 @@ export class GameScene extends Phaser.Scene {
   private found = new Set<string>()
   private toastUntil = 0
   private saveAvailable = true
+  private skills!: SkillTreePanel
 
   constructor() { super('GameScene') }
 
   create(): void {
+    this.statusBar.setVisible(true)
     this.markers = []
     this.found = new Set()
     this.saveAvailable = true
@@ -50,12 +56,31 @@ export class GameScene extends Phaser.Scene {
     const keyboard = this.input.keyboard!
     this.interact = keyboard.addKey('E')
     this.recall = keyboard.addKey('R')
-    this.mapKey = keyboard.addKey('TAB')
+    this.mapKey = keyboard.addKey('M')
     this.testReset = keyboard.addKey('T')
-    keyboard.addCapture(['SPACE', 'TAB'])
+    keyboard.addCapture(['SPACE'])
     this.createHud()
     this.createMarkers()
     this.createMap()
+    this.skills = new SkillTreePanel(() => this.closeSkills())
+    const unbindSkills = this.statusBar.onSkills(() => this.openSkills())
+    document.addEventListener('keydown', this.onMenuKey, true)
+    const levels = new Map(ELEMENTS.map(element => [element.id, progression.get(element.id).level]))
+    const unsubscribe = progression.subscribe(() => {
+      for (const element of ELEMENTS) {
+        const level = progression.get(element.id).level
+        if (level > levels.get(element.id)!) this.toast(`${element.label} · Stufe ${level} erreicht! Neue Skillpunkte mit K verteilen.`)
+        levels.set(element.id, level)
+      }
+    })
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      document.removeEventListener('keydown', this.onMenuKey, true)
+      unsubscribe()
+      unbindSkills()
+      this.skills.destroy()
+      keyboard.resetKeys()
+      this.statusBar.setVisible(false)
+    })
     this.toast('Rechts vom Lager: fliegende Plüschgegner · je 30 LP · T startet den Test neu.', 6000)
   }
 
@@ -107,8 +132,37 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (time > this.toastUntil) {
-      this.hintText.setText(nearLift || nearCaveLift ? 'E  Aufzug benutzen' : 'A/D Laufen · SHIFT Gehen · S Bauchlage · SPACE Sprung · MAUS Angriff · TAB Karte · R Lager')
+      this.hintText.setText(nearLift || nearCaveLift ? 'E  Aufzug benutzen' : 'A/D Laufen · S Bauchlage · SPACE Sprung · M Karte · K Skills · ESC Startmenü')
     }
+  }
+
+  /** DOM-Tasten bleiben auch bei der für den Skilltree pausierten Szene erreichbar. */
+  private onMenuKey = (event: KeyboardEvent): void => {
+    if (event.ctrlKey || event.metaKey || event.altKey || !['Escape', 'KeyK'].includes(event.code)) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    if (event.repeat) return
+    if (event.code === 'Escape') {
+      this.elements.cancelPreparedAttack()
+      this.input.keyboard?.resetKeys()
+      this.scene.start('MenuScene')
+    } else if (this.skills.isOpen) this.closeSkills()
+    else this.openSkills()
+  }
+
+  private openSkills(): void {
+    if (this.skills.isOpen) return
+    this.elements.cancelCharging()
+    this.input.keyboard?.resetKeys()
+    this.map.setVisible(false)
+    this.skills.open(this.elements.selectedElement)
+    this.scene.pause()
+  }
+
+  private closeSkills(): void {
+    this.skills.close()
+    this.input.keyboard?.resetKeys()
+    this.scene.resume()
   }
 
   private onEnemyContact(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
@@ -116,7 +170,7 @@ export class GameScene extends Phaser.Scene {
       const a = pair.bodyA.parent, b = pair.bodyB.parent
       const other = a === this.player.body ? b : b === this.player.body ? a : undefined
       if (other && this.enemies.some((enemy) => enemy.body === other && enemy.health.alive)) {
-        if (this.player.takeDamage(COMBAT.contactDamage)) this.cameras.main.shake(70, 0.002)
+        if (this.player.takeDamage(COMBAT.contactDamage)) screenShake(this, 0.002, 70)
       }
     }
   }
@@ -188,7 +242,7 @@ export class GameScene extends Phaser.Scene {
     this.mapPlayer = this.add.circle(0, 0, 5, 0xffffff)
     this.map.add(this.mapPlayer)
     label(175, 382, 'WEISS: Du   RAUTEN IN DER WELT: Grenzsteine')
-    label(175, 406, 'TAB schließen · R zurück zum Lager · Aufzüge mit E')
+    label(175, 406, 'M schließen · R zurück zum Lager · Aufzüge mit E')
   }
 
   private refreshProgress(): void {

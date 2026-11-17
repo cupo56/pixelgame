@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { MATTER_GRAVITY_Y, PHYSICS_FPS } from './physics.ts'
 import { BootScene } from '../scenes/BootScene.ts'
 import { GameScene } from '../scenes/GameScene.ts'
+import { MenuScene } from '../scenes/MenuScene.ts'
 
 export const GAME_WIDTH = 960
 export const GAME_HEIGHT = 540
@@ -26,5 +27,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, GameScene],
+  scene: [BootScene, MenuScene, GameScene],
 }

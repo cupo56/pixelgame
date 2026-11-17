@@ -28,7 +28,7 @@ export const applyBlast = (
       continue
     }
     const falloff = 1 - distance / radiusPx
-    if (damageEnemy(body, Math.ceil(damage * falloff))) impactRing(scene, body.position.x, body.position.y, 0xff7a1f)
+    if (damageEnemy(body, Math.ceil(damage * falloff), 'fire')) impactRing(scene, body.position.x, body.position.y, 0xff7a1f)
     const dirX = distance > 0 ? dx / distance : 0
     const dirY = distance > 0 ? dy / distance : -1
     const deltaV = metersPerSecondToMatter((impulseNs * falloff) / body.mass)

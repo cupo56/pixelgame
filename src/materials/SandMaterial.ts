@@ -195,7 +195,7 @@ export class SandMaterial {
     if (grain?.kind !== 'sand' || !this.grains.has(grain) || !grain.airborne || !isEnemy(other) || grain.hitTargets.has(other)) return
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < R.sandCloudDamageSpeedMs) return
-    if (damageEnemy(other, R.sandCloudDamage)) {
+    if (damageEnemy(other, R.sandCloudDamage, 'earth')) {
       grain.hitTargets.add(other)
       impactRing(this.scene, other.position.x, other.position.y, 0xd9c3a0)
     }

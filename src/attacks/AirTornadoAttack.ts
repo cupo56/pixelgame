@@ -197,7 +197,7 @@ export class AirTornadoAttack {
         const dy = (body.position.y - centerY) / (tornado.height * 0.55 + extent)
         if (dx * dx + dy * dy > 1 || extent * 2 + 12 > tornado.height) continue
         if (this.scene.matter.query.ray(terrain, { x: tornado.x, y: centerY }, body.position, 2).length) continue
-        if (rock ? !this.system.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)))) continue
+        if (rock ? !this.system.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)), 'air')) continue
         tornado.seen.add(body)
         if (!rock) impactRing(this.scene, body.position.x, body.position.y, COLORS[1])
         if (!rock && !isEnemy(body)) continue
