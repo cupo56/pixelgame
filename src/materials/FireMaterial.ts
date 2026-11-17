@@ -99,6 +99,8 @@ export class FireMaterial {
     applyBlast(this.scene, { x, y }, BLAST_RADIUS_M + charge * 1.5, BLAST_IMPULSE_NS * (1 + charge * 1.5),
       Math.round(Phaser.Math.Linear(COMBAT.fireDamage, COMBAT.chargedFireDamage, charge)))
     screenShake(this.scene, BLAST_SHAKE * (1 + charge * 0.65), 160)
+    // Die Explosion heizt Stoffe im Radius (Erde glüht, Sand schmilzt, Metall erhitzt).
+    this.system.heatArea({ x, y }, BLAST_RADIUS_M + charge * 1.5, fireball.heatJ)
     this.system.remove(fireball)
   }
 
@@ -108,6 +110,28 @@ export class FireMaterial {
     if (!this.fireballs.has(fireball)) return
     steamCloud(this.scene, fireball.body.position.x, fireball.body.position.y, R.dropletMassKg * 3)
     this.system.remove(fireball)
+  }
+
+  /** Abprallen an Metall: Geschwindigkeit an der Blockkante spiegeln, ein Fünftel der Wärme bleibt im Metall. */
+  bounce(substance: Substance, metal: Substance, point: { x: number; y: number }): void {
+    const fireball = substance as Fireball
+    if (!this.fireballs.has(fireball)) return
+    const body = fireball.body
+    // Der schnelle Feuerball steckt beim Erkennen oft schon tief im Block; die Anflugachse
+    // (relative Geschwindigkeit) ist deshalb verlässlicher als der Kontaktpunkt.
+    const rvx = body.velocity.x - metal.body.velocity.x, rvy = body.velocity.y - metal.body.velocity.y
+    const horizontal = Math.abs(rvx) >= Math.abs(rvy)
+    const vx = horizontal ? -body.velocity.x : body.velocity.x
+    const vy = horizontal ? body.velocity.y : -body.velocity.y
+    this.scene.matter.body.setVelocity(body, { x: vx * 0.8, y: vy * 0.8 })
+    // Aus dem Block herausziehen, damit er nicht in der nächsten Kollision erneut spiegelt.
+    const half = (metal.body.bounds.max.x - metal.body.bounds.min.x) / 2 + metersToPixels(BALL_RADIUS_M)
+    if (horizontal) this.scene.matter.body.setPosition(body, { x: metal.body.position.x + Math.sign(vx || 1) * half, y: body.position.y })
+    else this.scene.matter.body.setPosition(body, { x: body.position.x, y: metal.body.position.y + Math.sign(vy || 1) * half })
+    const lost = fireball.heatJ * R.fireMetalBounceLoss
+    fireball.heatJ -= lost
+    this.system.heatSubstance(metal, lost, point)
+    burst(this.scene, point.x, point.y, FIRE_COLORS, 10, 90)
   }
 
   destroy(): void {
@@ -155,7 +179,7 @@ export class FireMaterial {
     // Stoffpaare mit eigener Reaktion (Wasser) regelt die Reaktionstabelle. Das Label greift auch,
     // wenn der Tropfen in derselben Kollision bereits verdampft und abgemeldet wurde.
     const kind = this.system.registry.kindOf(other) ?? kindOfLabel(other.label)
-    if (kind === 'water' || (kind === 'ice' && other.label === 'ice')) return
+    if (kind === 'water' || kind === 'metal' || (kind === 'ice' && other.label === 'ice')) return
     this.explode(fireball)
   }
 }

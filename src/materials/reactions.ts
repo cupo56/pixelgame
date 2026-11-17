@@ -66,6 +66,19 @@ const waterMeetsSand: ReactionHandler = (water, _sand, ctx) => {
   if (water.body.label === 'water') ctx.system.materials.water?.splashAway(water)
 }
 
+/** Feuerball prallt an Metall ab und erhitzt es. */
+const fireMeetsMetal: ReactionHandler = (fire, metal, ctx) => {
+  ctx.system.materials.fire?.bounce(fire, metal, ctx.point)
+}
+
+/** Wasser auf heißem Metall verdampft und kühlt den Block; kaltes Metall wird nur nass. */
+const waterMeetsMetal: ReactionHandler = (water, metal, ctx) => {
+  const { water: waterMaterial, metal: metalMaterial } = ctx.system.materials
+  if (!waterMaterial || !metalMaterial || water.body.label !== 'water') return
+  if (metalMaterial.quenchWith(metal, water.massKg)) waterMaterial.evaporate(water)
+  else waterMaterial.splashAway(water)
+}
+
 /**
  * Die Reaktionsmatrix des Designs. Die Materialien füllen die Handler über
  * `setReaction`; hier stehen nur die Zellen, die es überhaupt gibt.
@@ -75,10 +88,10 @@ export const REACTIONS = new Map<string, ReactionHandler>([
   ['fire:ice', fireMeetsIce],
   ['fire:earth', noop],
   ['fire:sand', noop],
-  ['fire:metal', noop],
+  ['fire:metal', fireMeetsMetal],
   ['water:earth', waterMeetsEarth],
   ['water:sand', waterMeetsSand],
-  ['water:metal', noop],
+  ['water:metal', waterMeetsMetal],
   ['ice:earth', iceMeetsEarth],
 ])
 

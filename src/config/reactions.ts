@@ -69,6 +69,8 @@ export const REACTIONS = {
    */
   fireSolidCoupling: 60,
   sandMeltC: 1500,
+  /** Obergrenze für Festkörpertemperaturen (darüber würde Material verdampfen; hält Abkühlzeiten lesbar). */
+  solidMaxC: 2500,
   metalDensityKgM3: 7800,
   metalGlowC: 500,
   metalWhiteC: 1500,

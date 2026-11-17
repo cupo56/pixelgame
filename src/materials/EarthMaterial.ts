@@ -3,10 +3,11 @@ import { ALL_CATEGORIES, COLLISION_CATEGORY } from '../config/collision.ts'
 import { COMBAT } from '../config/combat.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter } from '../config/physics.ts'
-import { damageEnemy } from '../combat/damage.ts'
+import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
-import { sandWettingThresholdKg } from './thermo.ts'
+import { approachAmbient, glowFraction, sandWettingThresholdKg, solidHeatingK } from './thermo.ts'
+import { mix } from './MetalMaterial.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -33,6 +34,7 @@ export interface Rock extends Substance {
   damage: number
   hitTargets: Set<MatterJS.BodyType>
   inTornado: boolean
+  readonly lastBurnAt: Map<MatterJS.BodyType, number>
 }
 
 /** Geworfene Erdblöcke: Lebenszeit, Aufprall, Windschub und Wirbel-Aufnahme. */
@@ -52,18 +54,22 @@ export class EarthMaterial {
     system.setWindHandler('earth', (s, direction, strength) => this.pushWithAir(s as Rock, direction, strength))
     system.setCaptureHandlers('earth', (s) => this.capture(s as Rock), (s) => this.release(s as Rock))
     system.setWhipHandler('earth', (s, waterKg) => { this.wet(s, waterKg); return true })
+    system.setHeatHandler('earth', (s, heatJ) => this.heat(s as Rock, heatJ))
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
 
   /** Übernimmt einen frisch gestarteten Block (Körper + Rechteck) aus EarthRockAttack. */
   adopt(body: MatterJS.BodyType, shape: Phaser.GameObjects.Rectangle, charge: number, edgeM: number): Substance {
     const now = this.scene.time.now
+    // Matter skaliert die Drehträgheit nicht mit der mass-Option; Quadrat: I = m·a²/6.
+    const edgePx = body.bounds.max.x - body.bounds.min.x
+    this.scene.matter.body.setInertia(body, (body.mass * edgePx * edgePx) / 6)
     const rock: Rock = {
       kind: 'earth', body, shape, edgeM, charge,
       temperatureC: R.ambientC, massKg: body.mass, wetnessKg: 0, heatJ: 0, restingMs: 0, createdAt: now,
       expiresAt: now + ROCK_LIFETIME_MS, solidToPlayerAt: now + OWNER_GRACE_MS,
       damage: Math.round(Phaser.Math.Linear(COMBAT.earthDamage, COMBAT.chargedEarthDamage, charge)),
-      hitTargets: new Set(), inTornado: false,
+      hitTargets: new Set(), inTornado: false, lastBurnAt: new Map(),
       remove: () => {
         this.rocks.delete(rock)
         this.scene.matter.world?.remove(body)
@@ -81,11 +87,22 @@ export class EarthMaterial {
     if (!this.rocks.has(rock)) return
     rock.wetnessKg += waterKg
     const threshold = sandWettingThresholdKg(rock.edgeM)
-    const fraction = Math.min(1, rock.wetnessKg / threshold)
-    const color = Phaser.Display.Color.Interpolate.ColorWithColor(
-      Phaser.Display.Color.IntegerToColor(ROCK_COLOR), Phaser.Display.Color.IntegerToColor(WET_ROCK_COLOR), 1, fraction)
-    rock.shape.setFillStyle(Phaser.Display.Color.GetColor(color.r, color.g, color.b))
+    this.recolor(rock)
     if (rock.wetnessKg >= threshold) this.system.materials.sand?.fromEarth(rock, rock.edgeM)
+  }
+
+  private heat(rock: Rock, heatJ: number): void {
+    if (!this.rocks.has(rock)) return
+    rock.temperatureC = Math.min(R.solidMaxC, rock.temperatureC + solidHeatingK(heatJ, 1, rock.massKg))
+    this.recolor(rock)
+  }
+
+  /** Farbe aus Nässe (dunkler) und Hitze (dunkelrot → orange → gelb). */
+  private recolor(rock: Rock): void {
+    const wet = Math.min(1, rock.wetnessKg / sandWettingThresholdKg(rock.edgeM))
+    const glow = glowFraction(rock.temperatureC, R.earthGlowC, R.earthWhiteC)
+    const base = mix(ROCK_COLOR, WET_ROCK_COLOR, wet)
+    rock.shape.setFillStyle(glow < 0.5 ? mix(base, 0x7a1e0a, glow * 2) : mix(0xff8a1f, 0xffe28a, (glow - 0.5) * 2))
   }
 
   destroy(): void {
@@ -146,8 +163,12 @@ export class EarthMaterial {
     return this.scene.matter.overlap(probe, supports) ? bottom : undefined
   }
 
-  private step(_dtS: number, now: number): void {
+  private step(dtS: number, now: number): void {
     for (const rock of [...this.rocks]) {
+      if (rock.temperatureC > R.ambientC) {
+        rock.temperatureC = approachAmbient(rock.temperatureC, R.earthCoolingKPerS, dtS)
+        this.recolor(rock)
+      }
       if (now >= rock.expiresAt) this.system.remove(rock)
       else if (now >= rock.solidToPlayerAt && rock.body.collisionFilter.mask === LAUNCH_MASK &&
         !this.scene.matter.overlap(rock.body, [this.playerBody])) {
@@ -168,6 +189,10 @@ export class EarthMaterial {
     const rock = this.system.registry.get(body)
     if (rock?.kind !== 'earth' || other.isSensor) return
     const earth = rock as Rock
+    // Glühende Erde verbrennt Gegner bei Berührung.
+    if (earth.temperatureC >= R.earthGlowC && isEnemy(other) &&
+      this.scene.time.now - (earth.lastBurnAt.get(other) ?? -Infinity) >= R.glowContactIntervalMs &&
+      damageEnemy(other, R.glowContactDamage)) earth.lastBurnAt.set(other, this.scene.time.now)
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < IMPACT_MIN_SPEED_MS) return
     if (!earth.hitTargets.has(other) && damageEnemy(other, earth.damage)) earth.hitTargets.add(other)

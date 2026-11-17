@@ -4,7 +4,7 @@ import { REACTIONS as R } from '../config/reactions.ts'
 import { AIR_DRAG, matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { dust, sandCloud } from '../effects/particles.ts'
-import { approachAmbient, grainPlan } from './thermo.ts'
+import { approachAmbient, grainPlan, solidHeatingK } from './thermo.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -31,6 +31,7 @@ export class SandMaterial {
   private readonly offStep: () => void
   /** Pro Physikschritt höchstens eine Bremsung je Gegner. */
   private readonly brakedThisStep = new Set<MatterJS.BodyType>()
+  private meltScheduled = false
 
   constructor(scene: Phaser.Scene, system: ReactionSystem) {
     this.scene = scene
@@ -39,6 +40,7 @@ export class SandMaterial {
     this.offStep = system.onStep(this.step.bind(this))
     system.setWindHandler('sand', (s, direction, strength) => this.blow(s as Grain, direction, strength))
     system.setCaptureHandlers('sand', (s) => this.capture(s as Grain), (s) => this.release(s as Grain))
+    system.setHeatHandler('sand', (s, heatJ, ctx) => this.heat(s as Grain, heatJ, ctx.point))
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onContact, this)
   }
@@ -68,6 +70,33 @@ export class SandMaterial {
     }
     dust(this.scene, x, y, Math.round(8 + plan.count * 0.4), 70)
     return spawned
+  }
+
+  /**
+   * Hitze erwärmt das Korn. Das Verschmelzen läuft gesammelt nach der Erhitzung aller Körner,
+   * damit ein Haufen zu einem Block wird und nicht zu einem Block je Korn.
+   */
+  private heat(grain: Grain, heatJ: number, _point: { x: number; y: number }): void {
+    if (!this.grains.has(grain)) return
+    grain.temperatureC = Math.min(R.solidMaxC, grain.temperatureC + solidHeatingK(heatJ, 1, grain.massKg))
+    if (grain.temperatureC >= R.sandMeltC && !this.meltScheduled) {
+      this.meltScheduled = true
+      this.scene.time.delayedCall(0, () => this.fuseMolten())
+    }
+  }
+
+  /** Alle geschmolzenen Körner in Gruppen von 1,5 m Umkreis zu je einem Metallblock verschmelzen. */
+  private fuseMolten(): void {
+    this.meltScheduled = false
+    const radiusPx = metersToPixels(1.5)
+    let molten = [...this.grains].filter((g) => g.temperatureC >= R.sandMeltC)
+    while (molten.length) {
+      const seed = molten[0]
+      const cluster = molten.filter((g) =>
+        Phaser.Math.Distance.Between(g.body.position.x, g.body.position.y, seed.body.position.x, seed.body.position.y) <= radiusPx)
+      this.system.materials.metal?.fromGrains(cluster)
+      molten = molten.filter((g) => !cluster.includes(g))
+    }
   }
 
   all(): Grain[] {

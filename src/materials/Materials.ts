@@ -1,6 +1,7 @@
 import type { EarthMaterial } from './EarthMaterial.ts'
 import type { FireMaterial } from './FireMaterial.ts'
 import type { IceMaterial } from './IceMaterial.ts'
+import type { MetalMaterial } from './MetalMaterial.ts'
 import type { Puddle } from './Puddle.ts'
 import type { SandMaterial } from './SandMaterial.ts'
 import type { WaterMaterial } from './WaterMaterial.ts'
@@ -13,4 +14,5 @@ export interface Materials {
   puddle: Puddle
   ice: IceMaterial
   sand: SandMaterial
+  metal: MetalMaterial
 }

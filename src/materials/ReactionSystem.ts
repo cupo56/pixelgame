@@ -7,7 +7,8 @@ import type { Materials } from './Materials.ts'
 
 export type WindSource = 'gust' | 'tornado'
 type WindHandler = (s: Substance, direction: Phaser.Math.Vector2, strength: number, source: WindSource) => void
-type HeatHandler = (s: Substance, deltaK: number, ctx: ReactionContext) => void
+/** heatJ ist die am Stoff ankommende Wärme (nach Abfall); das Material rechnet sie in ΔT um. */
+type HeatHandler = (s: Substance, heatJ: number, ctx: ReactionContext) => void
 type WhipHandler = (s: Substance, waterKg: number, point: { x: number; y: number }) => boolean
 type StepListener = (dtS: number, now: number) => void
 interface CaptureHandlers { capture: (s: Substance) => boolean; release: (s: Substance) => void }
