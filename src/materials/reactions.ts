@@ -1,0 +1,55 @@
+import type Phaser from 'phaser'
+import type { Substance, SubstanceKind } from './Substance.ts'
+import type { ReactionSystem } from './ReactionSystem.ts'
+
+export interface ReactionContext {
+  scene: Phaser.Scene
+  system: ReactionSystem
+  /** Kontaktpunkt (Mittel der Kollisions-Supports). */
+  point: { x: number; y: number }
+  now: number
+}
+
+/** Stoffe kommen in der Reihenfolge von KIND_ORDER an (erster Schlüsselteil zuerst). */
+export type ReactionHandler = (a: Substance, b: Substance, ctx: ReactionContext) => void
+
+/** Kanonische Reihenfolge der Stoffe für Tabellenschlüssel. */
+export const KIND_ORDER: readonly SubstanceKind[] = ['fire', 'water', 'ice', 'earth', 'sand', 'metal']
+
+export const reactionKey = (a: SubstanceKind, b: SubstanceKind): string =>
+  KIND_ORDER.indexOf(a) <= KIND_ORDER.indexOf(b) ? `${a}:${b}` : `${b}:${a}`
+
+const noop: ReactionHandler = () => {}
+
+/**
+ * Die Reaktionsmatrix des Designs. Die Materialien füllen die Handler über
+ * `setReaction`; hier stehen nur die Zellen, die es überhaupt gibt.
+ */
+export const REACTIONS = new Map<string, ReactionHandler>([
+  ['fire:water', noop],
+  ['fire:ice', noop],
+  ['fire:earth', noop],
+  ['fire:sand', noop],
+  ['fire:metal', noop],
+  ['water:earth', noop],
+  ['water:sand', noop],
+  ['water:metal', noop],
+  ['ice:earth', noop],
+])
+
+/** Ersetzt den Handler einer vorhandenen Zelle; unbekannte Zellen sind ein Programmierfehler. */
+export const setReaction = (a: SubstanceKind, b: SubstanceKind, handler: ReactionHandler): void => {
+  const key = reactionKey(a, b)
+  if (!REACTIONS.has(key)) throw new Error(`Unbekannte Reaktion ${key}`)
+  REACTIONS.set(key, handler)
+}
+
+export const lookupReaction = (
+  a: Substance,
+  b: Substance,
+): { handler: ReactionHandler; first: Substance; second: Substance } | undefined => {
+  const handler = REACTIONS.get(reactionKey(a.kind, b.kind))
+  if (!handler) return undefined
+  const ordered = KIND_ORDER.indexOf(a.kind) <= KIND_ORDER.indexOf(b.kind)
+  return { handler, first: ordered ? a : b, second: ordered ? b : a }
+}
