@@ -13,7 +13,8 @@ import { kindOfLabel, type Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
 const BALL_RADIUS_M = 0.15
-const CHARGED_RADIUS_M = 0.45
+/** Voll geladen so groß wie ein voll geladener Erdblock (1,5 m Kantenlänge). */
+const CHARGED_RADIUS_M = 0.75
 const BALL_MASS_KG = 0.5
 /** Kinetische Startenergie; ergibt 20 m/s unabhängig von der Aufladung. */
 const LAUNCH_ENERGY_J = 100
@@ -56,8 +57,10 @@ export class FireMaterial {
   spawn(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2, heatJ: number): Substance | undefined {
     if (!this.system.reserve('fire')) return undefined
     const charge = fireChargeFraction(heatJ)
-    const spawnX = (origin.x ?? 0) + direction.x * metersToPixels(SPAWN_DISTANCE_M)
-    const spawnY = (origin.y ?? 0) + direction.y * metersToPixels(SPAWN_DISTANCE_M)
+    // Große Kugeln entstehen weiter vor der Hand, damit sie nicht in der Figur stecken.
+    const spawnPx = Math.max(metersToPixels(SPAWN_DISTANCE_M), this.radiusPx(heatJ))
+    const spawnX = (origin.x ?? 0) + direction.x * spawnPx
+    const spawnY = (origin.y ?? 0) + direction.y * spawnPx
     const bodyRadiusPx = this.radiusPx(heatJ)
     const body = this.scene.matter.add.circle(spawnX, spawnY, bodyRadiusPx, {
       label: 'fireball',
@@ -160,7 +163,7 @@ export class FireMaterial {
     const vy = horizontal ? body.velocity.y : -body.velocity.y
     this.scene.matter.body.setVelocity(body, { x: vx * 0.8, y: vy * 0.8 })
     // Aus dem Block herausziehen, damit er nicht in der nächsten Kollision erneut spiegelt.
-    const half = (metal.body.bounds.max.x - metal.body.bounds.min.x) / 2 + metersToPixels(BALL_RADIUS_M)
+    const half = (metal.body.bounds.max.x - metal.body.bounds.min.x) / 2 + fireball.bodyRadiusPx
     if (horizontal) this.scene.matter.body.setPosition(body, { x: metal.body.position.x + Math.sign(vx || 1) * half, y: body.position.y })
     else this.scene.matter.body.setPosition(body, { x: body.position.x, y: metal.body.position.y + Math.sign(vy || 1) * half })
     const lost = fireball.heatJ * R.fireMetalBounceLoss
