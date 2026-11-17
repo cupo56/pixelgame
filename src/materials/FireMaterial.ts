@@ -3,7 +3,9 @@ import { COMBAT } from '../config/combat.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { applyBlast } from '../attacks/explosion.ts'
-import { SPARK_TEXTURE, burst } from '../effects/particles.ts'
+import { SPARK_TEXTURE, burst, embers, smoke } from '../effects/particles.ts'
+import { flash, hitStopOnce, shockwaveRing } from '../effects/impact.ts'
+import { scorchDecal } from '../effects/decals.ts'
 import { screenShake } from '../effects/juice.ts'
 import { steamCloud } from './SteamEffect.ts'
 import { fireChargeFraction, quenchFire, windFeedHeat } from './thermo.ts'
@@ -29,6 +31,9 @@ export interface Fireball extends Substance {
   readonly expiry: Phaser.Time.TimerEvent
   /** Aktueller Körperradius; wächst mit Q, wenn Wind das Feuer nährt. */
   bodyRadiusPx: number
+  nextSmokeAt: number
+  nextEmberAt: number
+  readonly seed: number
 }
 
 /** Feuerbälle: Flug ohne Gravitation (Magie), Explosion beim ersten festen Treffer, Erlöschen im Wasser. */
@@ -73,9 +78,10 @@ export class FireMaterial {
       frequency: 12,
       quantity: 2 + Math.round(charge * 3),
     }).setDepth(15)
-    const core = this.scene.add.graphics().setDepth(16).setBlendMode(Phaser.BlendModes.ADD)
+    // Normaler Blend: additiv würde der geladene Kern zu einem weißen Klecks ausbrennen.
+    const core = this.scene.add.graphics().setDepth(16)
     const fireball: Fireball = {
-      kind: 'fire', body, emitter, core, bodyRadiusPx,
+      kind: 'fire', body, emitter, core, bodyRadiusPx, nextSmokeAt: 0, nextEmberAt: 0, seed: Math.random() * 1000,
       expiry: this.scene.time.delayedCall(MAX_FLIGHT_MS, () => this.explode(fireball)),
       temperatureC: 900, massKg: BALL_MASS_KG, wetnessKg: 0, heatJ, restingMs: 0, createdAt: this.scene.time.now,
       remove: () => {
@@ -94,12 +100,19 @@ export class FireMaterial {
   }
 
   /** Explosion: Schaden, Radius und Impuls folgen dem aktuellen Wärmeinhalt. */
-  explode(substance: Substance): void {
+  explode(substance: Substance, scorch = false): void {
     const fireball = substance as Fireball
     if (!this.fireballs.has(fireball)) return
     const charge = fireChargeFraction(fireball.heatJ)
     const { x, y } = fireball.body.position
+    const radius = this.radiusPx(fireball.heatJ)
+    flash(this.scene, x, y, radius * 2.5)
+    shockwaveRing(this.scene, x, y, radius, radius * 3 + charge * 30, 220, 0xffd27a)
     burst(this.scene, x, y, FIRE_COLORS, Math.round(40 + charge * 60), 160 + charge * 100)
+    smoke(this.scene, x, y - radius, Math.round(8 + charge * 14), 40)
+    embers(this.scene, x, y, Math.round(6 + charge * 14))
+    if (scorch) scorchDecal(this.scene, x, y + radius, 10 + charge * 22)
+    if (charge >= 0.5) hitStopOnce(this.scene, 50)
     applyBlast(this.scene, { x, y }, BLAST_RADIUS_M + charge * 1.5, BLAST_IMPULSE_NS * (1 + charge * 1.5),
       Math.round(Phaser.Math.Linear(COMBAT.fireDamage, COMBAT.chargedFireDamage, charge)))
     screenShake(this.scene, BLAST_SHAKE * (1 + charge * 0.65), 160)
@@ -113,6 +126,8 @@ export class FireMaterial {
     const fireball = substance as Fireball
     if (!this.fireballs.has(fireball)) return
     steamCloud(this.scene, fireball.body.position.x, fireball.body.position.y, R.dropletMassKg * 3)
+    // Zischen: kurze, schnelle weiße Funken.
+    burst(this.scene, fireball.body.position.x, fireball.body.position.y, [0xffffff, 0xdfe7ec], 8, 110)
     this.system.remove(fireball)
   }
 
@@ -173,16 +188,52 @@ export class FireMaterial {
   }
 
   private draw(): void {
-    for (const fireball of this.fireballs) this.drawOne(fireball)
+    const now = this.scene.time.now
+    for (const fireball of this.fireballs) {
+      this.drawOne(fireball)
+      const { x, y } = fireball.body.position
+      const charge = fireChargeFraction(fireball.heatJ)
+      if (now >= fireball.nextSmokeAt) {
+        smoke(this.scene, x - fireball.body.velocity.x * 1.5, y - fireball.body.velocity.y * 1.5, 1 + Math.round(charge), 20)
+        fireball.nextSmokeAt = now + 40
+      }
+      if (now >= fireball.nextEmberAt) {
+        embers(this.scene, x, y, 1 + Math.round(charge * 2))
+        fireball.nextEmberAt = now + 90
+      }
+    }
   }
 
+  /** Flammenkern aus flackernden Zungen entgegen der Flugrichtung, additiver Hitzeschein. */
   private drawOne(fireball: Fireball): void {
     const g = fireball.core
-    const radius = this.radiusPx(fireball.heatJ) * (1 + Math.sin(this.scene.time.now * 0.035) * 0.08)
+    const now = this.scene.time.now
+    const charge = fireChargeFraction(fireball.heatJ)
+    const radius = this.radiusPx(fireball.heatJ) * (1 + Math.sin(now * 0.035 + fireball.seed) * 0.08)
+    const { x: vx, y: vy } = fireball.body.velocity
+    const speed = Math.hypot(vx, vy)
+    const back = speed > 0.01 ? { x: -vx / speed, y: -vy / speed } : { x: -1, y: 0 }
+    const side = { x: -back.y, y: back.x }
     g.setPosition(fireball.body.position.x, fireball.body.position.y).clear()
-    g.fillStyle(0xff6a0e, 0.18).fillCircle(0, 0, radius * 1.7)
-    g.fillStyle(0xffa120, 0.9).fillCircle(0, 0, radius)
-    g.fillStyle(0xffe6a3).fillCircle(0, 0, radius * 0.6)
+    g.fillStyle(0xff6a0e, 0.22).fillCircle(0, 0, radius * 1.8)
+    const tongues = 3 + Math.round(charge)
+    for (let i = 0; i < tongues; i++) {
+      const phase = now * 0.02 + fireball.seed + i * 2.1
+      const spread = ((i / (tongues - 1)) - 0.5) * radius * 1.2
+      const length = radius * (1.3 + 0.5 * Math.sin(phase)) + Math.round(Math.random() * 2)
+      const baseX = side.x * spread, baseY = side.y * spread
+      const tip = { x: baseX + back.x * length + (Math.random() - 0.5) * 2, y: baseY + back.y * length + (Math.random() - 0.5) * 2 }
+      const points = [
+        new Phaser.Math.Vector2(baseX + side.x * radius * 0.35, baseY + side.y * radius * 0.35),
+        new Phaser.Math.Vector2(Math.round(tip.x), Math.round(tip.y)),
+        new Phaser.Math.Vector2(baseX - side.x * radius * 0.35, baseY - side.y * radius * 0.35),
+      ]
+      g.fillStyle(i % 2 ? 0xff9a1f : 0xd6360b, 0.85).fillPoints(points, true)
+    }
+    g.fillStyle(0xff7a12).fillCircle(0, 0, radius)
+    g.fillStyle(0xffb03a).fillCircle(back.x * -radius * 0.12, back.y * -radius * 0.12, radius * 0.7)
+    g.fillStyle(0xffe6a3).fillCircle(back.x * -radius * 0.2, back.y * -radius * 0.2, radius * 0.42)
+    g.fillStyle(0xfff8e0).fillCircle(back.x * -radius * 0.28, back.y * -radius * 0.28, radius * 0.18)
   }
 
   private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
@@ -199,6 +250,6 @@ export class FireMaterial {
     // wenn der Tropfen in derselben Kollision bereits verdampft und abgemeldet wurde.
     const kind = this.system.registry.kindOf(other) ?? kindOfLabel(other.label)
     if (kind === 'water' || kind === 'metal' || (kind === 'ice' && other.label === 'ice')) return
-    this.explode(fireball)
+    this.explode(fireball, other.isStatic)
   }
 }

@@ -46,3 +46,15 @@ export const drawIceShard = (g: Phaser.GameObjects.Graphics, x: number, y: numbe
   g.fillStyle(0xd8f6ff, 0.95).fillPoints(points, true)
   g.lineStyle(1, 0xffffff, 0.9).strokePoints(points, true)
 }
+
+/** Brandfleck auf Gelände; blendet über sechs Sekunden aus. */
+export const scorchDecal = (scene: Phaser.Scene, x: number, y: number, radiusPx: number): void => {
+  const g = scene.add.graphics().setDepth(4)
+  g.fillStyle(0x15120f, 0.55).fillEllipse(Math.round(x), Math.round(y), radiusPx * 2, Math.max(3, radiusPx * 0.5))
+  g.fillStyle(0x2a1d14, 0.5).fillEllipse(Math.round(x), Math.round(y), radiusPx * 1.3, Math.max(2, radiusPx * 0.3))
+  for (let i = 0; i < 5; i++) {
+    const px = x + (Math.random() - 0.5) * radiusPx * 2
+    g.fillStyle(0x0d0b09, 0.6).fillRect(Math.round(px), Math.round(y - 1 + Math.random() * 2), 2, 1)
+  }
+  scene.tweens.add({ targets: g, alpha: 0, duration: 6000, onComplete: () => g.destroy() })
+}

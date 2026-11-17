@@ -83,6 +83,41 @@ export const steam = (scene: Phaser.Scene, x: number, y: number, count: number):
   scene.time.delayedCall(1300, () => emitter.destroy())
 }
 
+export const SMOKE_COLORS = [0x2b2b33, 0x45454f, 0x6b6b75]
+export const EMBER_COLORS = [0xfff3a0, 0xff9a1f, 0xd6360b]
+
+/** Rauch: dunkel, nicht additiv, steigt langsam auf und bleibt gut eine Sekunde. */
+export const smoke = (scene: Phaser.Scene, x: number, y: number, count: number, riseSpeedPx = 30): void => {
+  const emitter = scene.add.particles(x, y, SPARK_TEXTURE, {
+    lifespan: { min: 900, max: 1400 },
+    angle: { min: 250, max: 290 },
+    speed: { min: riseSpeedPx * 0.5, max: riseSpeedPx },
+    gravityY: -25,
+    scale: { start: 1.4, end: 2.8 },
+    alpha: { start: 0.55, end: 0 },
+    color: SMOKE_COLORS,
+    emitting: false,
+  }).setDepth(17)
+  emitter.explode(count)
+  scene.time.delayedCall(1500, () => emitter.destroy())
+}
+
+/** Glut: helle Funken, die im Bogen fallen und verglimmen. */
+export const embers = (scene: Phaser.Scene, x: number, y: number, count: number): void => {
+  const emitter = scene.add.particles(x, y, SPARK_TEXTURE, {
+    lifespan: { min: 500, max: 1100 },
+    speed: { min: 40, max: 140 },
+    gravityY: GRAVITY_MS2 * PIXELS_PER_METER * 0.6,
+    scale: { start: 1, end: 0.2 },
+    alpha: { start: 1, end: 0 },
+    color: EMBER_COLORS,
+    blendMode: 'ADD',
+    emitting: false,
+  }).setDepth(18)
+  emitter.explode(count)
+  scene.time.delayedCall(1200, () => emitter.destroy())
+}
+
 /** Feiner Sandschleier in Windrichtung. */
 export const sandCloud = (scene: Phaser.Scene, x: number, y: number, direction: { x: number; y: number }, count: number): void => {
   const aimDeg = Math.atan2(direction.y, direction.x) * RAD_TO_DEG
