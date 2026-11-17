@@ -23,7 +23,7 @@ const object = (value: unknown): value is Record<string, unknown> => typeof valu
 const integer = (value: unknown, max: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(max, Math.floor(value))) : 0
 
-/** Vier unabhängige Trainingsstände. Level/Punkte werden aus EP und Käufen abgeleitet. */
+/** Unabhängige Trainingsstände je Element. Level/Punkte werden aus EP und Käufen abgeleitet. */
 export class Progression {
   private readonly storage: StoragePort | null
   private readonly elements = new Map<ElementId, ElementProgress>()

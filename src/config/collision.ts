@@ -7,6 +7,7 @@ export const COLLISION_CATEGORY = {
   ice: 16,
   sand: 32,
   metal: 64,
+  armor: 128,
 } as const
 
 export const ALL_CATEGORIES = 0xffffffff
@@ -20,6 +21,9 @@ export const ICE_MASK = WITHOUT_PLAYER
 export const SAND_MASK = WITHOUT_PLAYER
 /** Wie Erde: nach der Schonfrist wird die Maske auf ALL_CATEGORIES gesetzt. */
 export const METAL_LAUNCH_MASK = WITHOUT_PLAYER
+
+/** Rüstungsplatten und Metallspitzen berühren nur Gegner: kein Einfluss auf Spieler, Gelände oder Stoffe. */
+export const ARMOR_MASK = COLLISION_CATEGORY.enemy
 
 /** Gleiche negative Gruppe: Körper dieser Art kollidieren nie untereinander. */
 export const WATER_GROUP = -1

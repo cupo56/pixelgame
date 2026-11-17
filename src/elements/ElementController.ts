@@ -22,10 +22,10 @@ const AIM_LINE_ALPHA = 0.6
 const RETICLE_RADIUS_PX = 3
 /** Wie bei Erde: kurzes Tippen wirft, ab 180 ms Haltezeit beginnt die Aufladung. */
 const HOLD_CHARGE_DELAY_MS = 180
-/** Tasten 1-4, gleiche Reihenfolge wie ELEMENTS. */
-const ELEMENT_KEY_NAMES = ['ONE', 'TWO', 'THREE', 'FOUR'] as const
+/** Tasten 1-5, gleiche Reihenfolge wie ELEMENTS. */
+const ELEMENT_KEY_NAMES = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'] as const
 
-/** Elementwahl (Mausrad / 1-4), Zielen mit der Maus, Angriff mit Linksklick. */
+/** Elementwahl (Mausrad / 1-5), Zielen mit der Maus, Angriff mit Linksklick. */
 export class ElementController {
   private readonly scene: Phaser.Scene
   private readonly player: Player
@@ -158,6 +158,8 @@ export class ElementController {
 
   private pressAttack(pointer: Phaser.Input.Pointer): void {
     if (pointer.button !== 0) return
+    // Metall bekommt seine Eingabe mit dem Bändigen (Task 5) und der Sphäre (Task 6).
+    if (this.selected.id === 'metal') return
     if (this.selected.id !== 'earth') {
       this.heldCast ??= { element: this.selected.id, pressedAt: this.scene.time.now }
       return

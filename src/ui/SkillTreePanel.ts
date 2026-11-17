@@ -8,6 +8,7 @@ const ICONS: Record<ElementId, string> = {
   fire: '<path d="M20 4c2 9-8 11-3 17 3-1 5-4 5-7 10 9 8 17-4 18C5 31 4 21 11 13c-1 7 3 8 3 5C13 11 19 10 20 4Z"/>',
   water: '<path d="M18 4C15 11 7 17 7 23a11 11 0 0 0 22 0C29 17 21 11 18 4Z"/><path d="M12 23c0 4 2 6 6 6"/>',
   air: '<path d="M5 13h18c7 0 7-9 1-9-3 0-4 2-4 4M3 19h25c7 0 7 10 1 10-3 0-4-2-4-4M7 25h9c6 0 6 8 1 8"/>',
+  metal: '<path d="M7 14h22l-3 7H10Z"/><path d="M13 21v6h10v-6M9 30h18M10 14l3-6h10l3 6"/>',
 }
 const icon = (element: ElementId) => `<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[element]}</svg>`
 const escape = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!)

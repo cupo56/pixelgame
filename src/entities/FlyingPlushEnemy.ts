@@ -40,7 +40,7 @@ export class FlyingPlushEnemy {
       collisionFilter: {
         category: COLLISION_CATEGORY.enemy,
         mask: COLLISION_CATEGORY.world | COLLISION_CATEGORY.player | COLLISION_CATEGORY.water |
-          COLLISION_CATEGORY.ice | COLLISION_CATEGORY.sand | COLLISION_CATEGORY.metal,
+          COLLISION_CATEGORY.ice | COLLISION_CATEGORY.sand | COLLISION_CATEGORY.metal | COLLISION_CATEGORY.armor,
         group: 0,
       },
     })

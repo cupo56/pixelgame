@@ -90,4 +90,16 @@ describe('element progression', () => {
     expect(progress.get('fire')).toMatchObject({ level: 2, points: 1 })
     expect(progress.saveAvailable).toBe(false)
   })
+
+  it('alter Spielstand ohne Metall lädt mit Metall-Startwert', () => {
+    const saved = { version: 1, elements: {
+      earth: { totalXp: 60, ranks: { foundation: 1, power: 1 } },
+      fire: { totalXp: 0, ranks: { foundation: 1 } },
+      water: { totalXp: 0, ranks: { foundation: 1 } },
+      air: { totalXp: 0, ranks: { foundation: 1 } },
+    } }
+    const progress = new Progression(memory(JSON.stringify(saved)))
+    expect(progress.get('metal')).toEqual({ level: 1, xp: 0, xpToNext: 60, points: 1, ranks: { foundation: 1 } })
+    expect(progress.get('earth')).toMatchObject({ level: 2, ranks: { foundation: 1, power: 1 } })
+  })
 })
