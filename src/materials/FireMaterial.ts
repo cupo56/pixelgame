@@ -3,7 +3,7 @@ import { COMBAT } from '../config/combat.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { applyBlast } from '../attacks/explosion.ts'
-import { SPARK_TEXTURE, burst, embers, smoke } from '../effects/particles.ts'
+import { EMBER_COLORS, SMOKE_COLORS, SPARK_TEXTURE, burst, embers, smoke } from '../effects/particles.ts'
 import { flash, hitStopOnce, shockwaveRing } from '../effects/impact.ts'
 import { scorchDecal } from '../effects/decals.ts'
 import { screenShake } from '../effects/juice.ts'
@@ -31,8 +31,9 @@ export interface Fireball extends Substance {
   readonly expiry: Phaser.Time.TimerEvent
   /** Aktueller Körperradius; wächst mit Q, wenn Wind das Feuer nährt. */
   bodyRadiusPx: number
-  nextSmokeAt: number
-  nextEmberAt: number
+  /** Dauerhafte Emitter je Feuerball (statt eines neuen Emitters pro Frame). */
+  readonly smokeTrail: Phaser.GameObjects.Particles.ParticleEmitter
+  readonly emberTrail: Phaser.GameObjects.Particles.ParticleEmitter
   readonly seed: number
 }
 
@@ -80,14 +81,29 @@ export class FireMaterial {
     }).setDepth(15)
     // Normaler Blend: additiv würde der geladene Kern zu einem weißen Klecks ausbrennen.
     const core = this.scene.add.graphics().setDepth(16)
+    const smokeTrail = this.scene.add.particles(0, 0, SPARK_TEXTURE, {
+      follow: body.position,
+      lifespan: { min: 900, max: 1400 }, angle: { min: 250, max: 290 }, speed: { min: 10, max: 20 }, gravityY: -25,
+      scale: { start: 1.4, end: 2.8 }, alpha: { start: 0.55, end: 0 }, color: SMOKE_COLORS,
+      frequency: 40, quantity: 1 + Math.round(charge),
+    }).setDepth(17)
+    const emberTrail = this.scene.add.particles(0, 0, SPARK_TEXTURE, {
+      follow: body.position,
+      lifespan: { min: 500, max: 1100 }, speed: { min: 40, max: 140 }, gravityY: 9.81 * 32 * 0.6,
+      scale: { start: 1, end: 0.2 }, alpha: { start: 1, end: 0 }, color: EMBER_COLORS, blendMode: 'ADD',
+      frequency: 90, quantity: 1 + Math.round(charge * 2),
+    }).setDepth(18)
     const fireball: Fireball = {
-      kind: 'fire', body, emitter, core, bodyRadiusPx, nextSmokeAt: 0, nextEmberAt: 0, seed: Math.random() * 1000,
+      kind: 'fire', body, emitter, core, bodyRadiusPx, smokeTrail, emberTrail, seed: Math.random() * 1000,
       expiry: this.scene.time.delayedCall(MAX_FLIGHT_MS, () => this.explode(fireball)),
       temperatureC: 900, massKg: BALL_MASS_KG, wetnessKg: 0, heatJ, restingMs: 0, createdAt: this.scene.time.now,
       remove: () => {
         this.fireballs.delete(fireball)
         emitter.destroy()
         core.destroy()
+        // Schleppen auslaufen lassen: nicht mehr emittieren, nach der längsten Lebensdauer entfernen.
+        smokeTrail.stop(); emberTrail.stop()
+        this.scene.time.delayedCall(1500, () => { smokeTrail.destroy(); emberTrail.destroy() })
         fireball.expiry.remove()
         // Körper erst nach dem Physikschritt löschen, damit laufende Kollisionen sauber enden.
         this.scene.time.delayedCall(0, () => this.scene.matter.world?.remove(body))
@@ -188,20 +204,7 @@ export class FireMaterial {
   }
 
   private draw(): void {
-    const now = this.scene.time.now
-    for (const fireball of this.fireballs) {
-      this.drawOne(fireball)
-      const { x, y } = fireball.body.position
-      const charge = fireChargeFraction(fireball.heatJ)
-      if (now >= fireball.nextSmokeAt) {
-        smoke(this.scene, x - fireball.body.velocity.x * 1.5, y - fireball.body.velocity.y * 1.5, 1 + Math.round(charge), 20)
-        fireball.nextSmokeAt = now + 40
-      }
-      if (now >= fireball.nextEmberAt) {
-        embers(this.scene, x, y, 1 + Math.round(charge * 2))
-        fireball.nextEmberAt = now + 90
-      }
-    }
+    for (const fireball of this.fireballs) this.drawOne(fireball)
   }
 
   /** Flammenkern aus flackernden Zungen entgegen der Flugrichtung, additiver Hitzeschein. */

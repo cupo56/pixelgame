@@ -14,6 +14,8 @@ export interface Substance {
   /** Ruhezeit auf Gelände in ms (Pfützenbildung, Versinken). */
   restingMs: number
   readonly createdAt: number
+  /** false für statische Stoffe (Pfütze, Eisfläche): zählen nicht zum Körperbudget, werden nie verdrängt. */
+  readonly budgeted?: boolean
   /** Entfernt Körper und Grafik; ruft registry.unregister nicht selbst. */
   remove(): void
 }
@@ -74,6 +76,19 @@ export class SubstanceRegistry {
   oldest(kind: SubstanceKind): Substance | undefined {
     const candidates = this.ofKind(kind)
     const resting = candidates.filter((substance) => substance.restingMs > 0)
+    const pool = resting.length ? resting : candidates
+    return pool.reduce<Substance | undefined>((best, s) => (!best || s.createdAt < best.createdAt ? s : best), undefined)
+  }
+
+  /** Zählt nur budgetierte (dynamische) Stoffe. */
+  budgetCount(kind?: SubstanceKind): number {
+    return this.all().filter((s) => s.budgeted !== false && (kind === undefined || s.kind === kind)).length
+  }
+
+  /** Verdrängungskandidat: budgetiert, nicht in diesem Schritt entstanden; ruhende zuerst, sonst der älteste. */
+  oldestBudgeted(kind: SubstanceKind, now: number): Substance | undefined {
+    const candidates = this.ofKind(kind).filter((s) => s.budgeted !== false && s.createdAt < now)
+    const resting = candidates.filter((s) => s.restingMs > 0)
     const pool = resting.length ? resting : candidates
     return pool.reduce<Substance | undefined>((best, s) => (!best || s.createdAt < best.createdAt ? s : best), undefined)
   }

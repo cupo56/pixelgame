@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { PHYSICS_FPS, metersToPixels } from '../config/physics.ts'
+import { burst } from '../effects/particles.ts'
 import { SubstanceRegistry, type Substance, type SubstanceKind } from './Substance.ts'
 import { lookupReaction, type ReactionContext } from './reactions.ts'
 import type { Materials } from './Materials.ts'
@@ -16,8 +17,10 @@ interface CaptureHandlers { capture: (s: Substance) => boolean; release: (s: Sub
 const DT = 1 / PHYSICS_FPS
 /** Deckel je Stoffart; Metall verwaltet seinen Deckel selbst (dauerhafte Blöcke, Versinken). */
 const KIND_BUDGET: Partial<Record<SubstanceKind, number>> = { water: R.budgetDroplets, sand: R.budgetGrains }
-/** Verdrängungsreihenfolge, wenn das Gesamtbudget voll ist. */
-const DISPLACE_ORDER: readonly SubstanceKind[] = ['water', 'sand', 'ice', 'fire']
+/** Verdrängungsreihenfolge, wenn das Gesamtbudget voll ist: eigene Art zuerst, dann leichte Stoffe. Feuer und Metall werden nie verdrängt. */
+const DISPLACE_ORDER: readonly SubstanceKind[] = ['water', 'sand', 'ice']
+/** Feuerbälle sind wenige und kurzlebig; sie unterliegen keinem Budget und werden nie wortlos gelöscht. */
+const UNBUDGETED_KINDS: ReadonlySet<SubstanceKind> = new Set(['fire', 'metal'])
 
 /**
  * Ein Ort für alle Stoffreaktionen: hört einmal auf Kollisionen, führt die
@@ -42,12 +45,17 @@ export class ReactionSystem {
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
 
-  /** Platz im Budget schaffen; false, wenn auch nach Verdrängung kein Platz ist. */
+  /**
+   * Platz im Budget schaffen; false, wenn auch nach Verdrängung kein Platz ist.
+   * Verdrängt nie Stoffe, die in diesem Schritt entstanden sind (ein zerfallender Block behält alle Körner).
+   */
   reserve(kind: SubstanceKind): boolean {
+    if (UNBUDGETED_KINDS.has(kind)) return true
     const cap = KIND_BUDGET[kind]
-    if (cap !== undefined && this.registry.count(kind) >= cap && !this.displace(kind)) return false
-    while (this.registry.count() >= R.budgetTotal) {
-      if (!this.displace(kind) && !DISPLACE_ORDER.some((other) => other !== kind && this.displace(other))) return false
+    if (cap !== undefined && this.registry.budgetCount(kind) >= cap && !this.displace(kind)) return false
+    while (this.registry.budgetCount() >= R.budgetTotal) {
+      const order = [kind, ...DISPLACE_ORDER.filter((other) => other !== kind)]
+      if (!order.some((victim) => this.displace(victim))) return false
     }
     return true
   }
@@ -135,8 +143,10 @@ export class ReactionSystem {
   }
 
   private displace(kind: SubstanceKind): boolean {
-    const victim = this.registry.oldest(kind)
+    const victim = this.registry.oldestBudgeted(kind, this.scene.time.now)
     if (!victim) return false
+    // Kleiner Puff, damit das Verschwinden nicht wortlos ist.
+    burst(this.scene, victim.body.position.x, victim.body.position.y, [0xffffff, 0xcfd8dc], 3, 30)
     this.remove(victim)
     return true
   }

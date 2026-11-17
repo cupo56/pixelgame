@@ -53,7 +53,7 @@ export class SandMaterial {
     const temperatureC = earth.temperatureC
     const sizePx = metersToPixels(edgeM)
     this.system.remove(earth)
-    const freeSlots = Math.max(0, Math.min(R.budgetGrains - this.system.registry.count('sand'), R.budgetTotal - this.system.registry.count()))
+    const freeSlots = Math.max(0, Math.min(R.budgetGrains - this.system.registry.budgetCount('sand'), R.budgetTotal - this.system.registry.budgetCount()))
     const plan = grainPlan(edgeM, freeSlots)
     const spawned: Substance[] = []
     for (let i = 0; i < plan.count; i++) {
@@ -168,7 +168,7 @@ export class SandMaterial {
     sandCloud(this.scene, grain.body.position.x, grain.body.position.y, direction, 3)
   }
 
-  private step(dtS: number, now: number): void {
+  private step(dtS: number): void {
     this.brakedThisStep.clear()
     for (const grain of [...this.grains]) {
       grain.temperatureC = approachAmbient(grain.temperatureC, R.earthCoolingKPerS, dtS)
@@ -180,7 +180,6 @@ export class SandMaterial {
         this.system.remove(grain)
       }
     }
-    void now
   }
 
   private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {

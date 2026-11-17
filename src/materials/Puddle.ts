@@ -53,7 +53,7 @@ export class Puddle {
     })
     const view = this.scene.add.graphics().setDepth(5)
     const puddle: PuddleState = {
-      kind: 'water', body, x, y, widthPx, lastFedAt: this.scene.time.now, view,
+      kind: 'water', body, x, y, widthPx, lastFedAt: this.scene.time.now, view, budgeted: false,
       temperatureC: tempC, massKg, wetnessKg: 0, heatJ: 0, restingMs: 1, createdAt: this.scene.time.now,
       remove: () => {
         this.puddles.delete(puddle)

@@ -77,3 +77,33 @@ describe('kindOfLabel', () => {
     expect(kindOfLabel('terrain')).toBeUndefined()
   })
 })
+
+describe('Budget-Sicht der Registry', () => {
+  const make = (kind: SubstanceKind, createdAt: number, extra: Partial<Substance> = {}): Substance =>
+    ({ ...substance(kind, createdAt), ...extra })
+
+  it('budgetCount zählt nur budgetierte (dynamische) Stoffe', () => {
+    const registry = new SubstanceRegistry()
+    registry.register(make('water', 0))
+    registry.register(make('water', 1, { budgeted: false }))   // Pfütze
+    registry.register(make('ice', 2, { budgeted: false }))     // Eisfläche
+    registry.register(make('ice', 3))
+    expect(registry.budgetCount('water')).toBe(1)
+    expect(registry.budgetCount('ice')).toBe(1)
+    expect(registry.budgetCount()).toBe(2)
+  })
+
+  it('oldestBudgeted überspringt Pfützen und im selben Schritt entstandene Stoffe', () => {
+    const registry = new SubstanceRegistry()
+    const puddle = make('water', 0, { budgeted: false, restingMs: 1 })
+    const fresh = make('water', 100)
+    const older = make('water', 50)
+    registry.register(puddle)
+    registry.register(older)
+    registry.register(fresh)
+    expect(registry.oldestBudgeted('water', 100)).toBe(older)
+    registry.unregister(older.body)
+    expect(registry.oldestBudgeted('water', 100)).toBeUndefined()
+    expect(registry.oldestBudgeted('water', 101)).toBe(fresh)
+  })
+})

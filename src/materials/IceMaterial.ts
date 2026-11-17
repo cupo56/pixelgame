@@ -94,7 +94,7 @@ export class IceMaterial {
     })
     const view = this.scene.add.graphics().setDepth(5)
     const sheet: IceSheet = {
-      kind: 'ice', body, view, x, y, widthPx, frozenAt: this.scene.time.now,
+      kind: 'ice', body, view, x, y, widthPx, frozenAt: this.scene.time.now, budgeted: false,
       temperatureC: Math.min(R.iceStartC, temperatureC), massKg, wetnessKg: 0, heatJ: 0, restingMs: 1,
       createdAt: this.scene.time.now,
       remove: () => {

@@ -23,6 +23,8 @@ export interface MetalBlock extends Substance {
   readonly kind: 'metal'
   readonly view: Phaser.GameObjects.Graphics
   readonly glow: Phaser.GameObjects.Graphics
+  /** Dauerhafter Emitter für das Hitzeflimmern; läuft nur, solange der Block glüht. */
+  readonly shimmer: Phaser.GameObjects.Particles.ParticleEmitter
   readonly edgePx: number
   solidToPlayerAt: number
   readonly lastBurnAt: Map<MatterJS.BodyType, number>
@@ -101,14 +103,20 @@ export class MetalMaterial {
     this.scene.matter.body.setInertia(body, (massKg * edgePx * edgePx) / 6)
     const view = this.scene.add.graphics().setDepth(5)
     const glow = this.scene.add.graphics().setDepth(15).setBlendMode(Phaser.BlendModes.ADD)
+    const shimmer = this.scene.add.particles(0, 0, SPARK_TEXTURE, {
+      follow: body.position, followOffset: { x: 0, y: -edgePx / 2 }, x: { min: -edgePx / 2, max: edgePx / 2 },
+      lifespan: 300, speedY: { min: -40, max: -20 }, scale: { start: 0.6, end: 0 }, alpha: { start: 0.5, end: 0 },
+      color: [0xffd27a], frequency: 60, emitting: false,
+    }).setDepth(15)
     const now = this.scene.time.now
     const block: MetalBlock = {
-      kind: 'metal', body, view, glow, edgePx, solidToPlayerAt: now + OWNER_GRACE_MS, lastBurnAt: new Map(), sinking: false,
+      kind: 'metal', body, view, glow, shimmer, edgePx, solidToPlayerAt: now + OWNER_GRACE_MS, lastBurnAt: new Map(), sinking: false,
       temperatureC, massKg, wetnessKg: 0, heatJ: 0, restingMs: 0, createdAt: now,
       remove: () => {
         this.blocks.delete(block)
         view.destroy()
         glow.destroy()
+        shimmer.destroy()
         this.scene.time.delayedCall(0, () => this.scene.matter.world?.remove(body))
       },
     }
@@ -124,6 +132,7 @@ export class MetalMaterial {
     this.blocks.delete(block)
     this.scene.matter.world.remove(block.body)
     block.glow.destroy()
+    block.shimmer.destroy()
     dust(this.scene, block.body.position.x, block.body.position.y + block.edgePx / 2, 10, 50)
     this.scene.tweens.add({
       targets: block.view, y: block.view.y + block.edgePx + 4, alpha: 0, duration: SINK_MS,
@@ -156,7 +165,6 @@ export class MetalMaterial {
   }
 
   private draw(): void {
-    const now = this.scene.time.now
     for (const block of this.blocks) {
       if (block.sinking) continue
       const { x, y } = block.body.position
@@ -169,19 +177,11 @@ export class MetalMaterial {
       g.fillStyle(METAL_SHINE, 0.9).fillRect(-half + 2, -half + 2, Math.max(1, Math.round(block.edgePx * 0.35)), 1)
       g.lineStyle(1, 0x2a2e34).strokeRect(-half, -half, block.edgePx, block.edgePx)
       const s = block.glow.setPosition(x, y).clear()
-      if (glow > 0) {
-        s.fillStyle(0xff7a1f, 0.12 + glow * 0.2).fillCircle(0, 0, half * (1.6 + glow))
-        // Hitzeflimmern über heißem Metall.
-        if (Math.random() < 0.3 + glow * 0.5) {
-          const emitter = this.scene.add.particles(x + Phaser.Math.FloatBetween(-half, half), y - half, SPARK_TEXTURE, {
-            lifespan: 300, speedY: { min: -40, max: -20 }, scale: { start: 0.6, end: 0 }, alpha: { start: 0.5, end: 0 },
-            color: [0xffd27a], emitting: false,
-          }).setDepth(15)
-          emitter.explode(1)
-          this.scene.time.delayedCall(350, () => emitter.destroy())
-        }
-      }
-      void now
+      if (glow > 0) s.fillStyle(0xff7a1f, 0.12 + glow * 0.2).fillCircle(0, 0, half * (1.6 + glow))
+      // Hitzeflimmern nur über glühendem Metall; dichter, je heißer.
+      if (glow > 0 && !block.shimmer.emitting) block.shimmer.start()
+      else if (glow <= 0 && block.shimmer.emitting) block.shimmer.stop()
+      if (glow > 0) block.shimmer.frequency = Math.round(90 - glow * 60)
     }
   }
 
