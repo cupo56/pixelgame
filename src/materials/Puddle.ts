@@ -83,6 +83,12 @@ export class Puddle {
     return taken
   }
 
+  /** Wind kühlt die Pfütze; bei ≤ 0 °C gefriert sie im nächsten Schritt zur Eisfläche. */
+  cool(substance: Substance, deltaK: number): void {
+    const puddle = substance as PuddleState
+    if (this.puddles.has(puddle)) puddle.temperatureC -= deltaK
+  }
+
   all(): PuddleState[] {
     return [...this.puddles]
   }
@@ -105,6 +111,10 @@ export class Puddle {
   private step(dtS: number, now: number): void {
     for (const puddle of [...this.puddles]) {
       puddle.temperatureC = approachAmbient(puddle.temperatureC, PUDDLE_WARMING_K_PER_S, dtS)
+      if (puddle.temperatureC <= R.waterFreezeC && this.system.materials.ice) {
+        this.system.materials.ice.sheetFromPuddle(puddle)
+        continue
+      }
       if (now - puddle.lastFedAt >= R.puddleEvaporateMs) this.system.remove(puddle)
     }
   }

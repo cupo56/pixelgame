@@ -231,7 +231,7 @@ export class AirTornadoAttack {
         const cap = metersPerSecondToMatter(14), speed = Math.hypot(nextVX, nextVY)
         if (speed > cap) { nextVX *= cap / speed; nextVY *= cap / speed }
         this.scene.matter.body.setVelocity(body, { x: nextVX, y: nextVY })
-        if (orbit.rock) this.scene.matter.body.setAngularVelocity(body, angularSpeed / PHYSICS_FPS * 0.45)
+        if (orbit.rock && body.inertia !== Infinity) this.scene.matter.body.setAngularVelocity(body, angularSpeed / PHYSICS_FPS * 0.45)
       }
     }
   }

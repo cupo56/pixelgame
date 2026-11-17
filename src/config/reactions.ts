@@ -28,6 +28,8 @@ export const REACTIONS = {
 
   // Luft kühlt Wasser (Verdunstungskälte, bewusst kräftig, damit es lesbar ist).
   gustCoolingK: 30,
+  /** Leichte Teilchen (Tropfen, Scherben, Körner) werden höchstens auf diese Geschwindigkeit mitgetragen (m/s). */
+  gustCarrySpeedMs: 12,
   vortexCoolingKPerS: 60,
 
   // Eis

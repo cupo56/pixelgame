@@ -11,6 +11,7 @@ import { JUMP_SPEED_MS, PLAYER } from '../config/player.ts'
 import { StickFigureView } from './StickFigureView.ts'
 import { Health } from '../combat/Health.ts'
 import { COMBAT } from '../config/combat.ts'
+import { REACTIONS } from '../config/reactions.ts'
 
 const PHYSICS_DT = 1 / PHYSICS_FPS
 const GROUND_PROBE_PX = 2
@@ -167,7 +168,7 @@ export class Player {
     const speedMs = matterToMetersPerSecond(this.body.velocity.x)
 
     const nextSpeedMs = this.grounded
-      ? this.groundSpeed(speedMs, direction)
+      ? this.groundSpeed(speedMs, direction, this.groundFriction(obstacles))
       : this.airSpeed(speedMs, direction)
     this.scene.matter.body.setVelocity(this.body, {
       x: metersPerSecondToMatter(nextSpeedMs),
@@ -336,18 +337,31 @@ export class Player {
     })
   }
 
+  /** Reibungsfaktor des Untergrunds (1 = normal, Eis ≈ 0,08); skaliert Bremsen und Beschleunigen am Boden. */
+  private groundFriction(obstacles: MatterJS.BodyType[]): number {
+    const ice = obstacles.filter((body) => body.label === 'ice-sheet')
+    if (!ice.length) return 1
+    const probe = this.scene.matter.bodies.rectangle(
+      this.body.position.x,
+      this.body.position.y + this.bodyHeight / 2 + GROUND_PROBE_PX / 2,
+      this.bodyWidth - GROUND_PROBE_INSET_PX * 2,
+      GROUND_PROBE_PX,
+    )
+    return this.scene.matter.overlap(probe, ice) ? REACTIONS.iceFriction : 1
+  }
+
   /** Mit Eingabe: Beschleunigen. Ohne Eingabe: Haftreibung bremst bis zum Stillstand. */
-  private groundSpeed(speedMs: number, direction: number): number {
+  private groundSpeed(speedMs: number, direction: number, friction = 1): number {
     if (direction === 0) {
-      return approach(speedMs, 0, PLAYER.stopDecelMs2 * PHYSICS_DT)
+      return approach(speedMs, 0, PLAYER.stopDecelMs2 * friction * PHYSICS_DT)
     }
-    const braking = Math.sign(speedMs) === -direction ? PLAYER.stopDecelMs2 : 0
+    const braking = Math.sign(speedMs) === -direction ? PLAYER.stopDecelMs2 * friction : 0
     const uprightSpeed = this.keys.walk.isDown ? PLAYER.walkSpeedMs : PLAYER.maxSpeedMs
     const targetSpeed = uprightSpeed + (PLAYER.crawlSpeedMs - uprightSpeed) * this.prone
     return approach(
       speedMs,
       direction * targetSpeed,
-      (PLAYER.groundAccelMs2 + braking) * PHYSICS_DT,
+      (PLAYER.groundAccelMs2 * friction + braking) * PHYSICS_DT,
     )
   }
 

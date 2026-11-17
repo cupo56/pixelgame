@@ -75,9 +75,9 @@ export class AirGustAttack implements Attack {
     const rangePx = metersToPixels(RANGE_M)
     const minCos = Math.cos(HALF_ANGLE_RAD)
     for (const body of this.scene.matter.world.getAllBodies()) {
-      if (body.isStatic || body === this.playerBody) continue
-      // Sensoren sind nur als registrierte Stoffe (z. B. Feuerbälle) windempfindlich.
-      if (body.isSensor && !this.system.registry.get(body)) continue
+      if (body === this.playerBody) continue
+      // Statische Körper und Sensoren sind nur als registrierte Stoffe (Pfützen, Feuerbälle) windempfindlich.
+      if ((body.isStatic || body.isSensor) && !this.system.registry.get(body)) continue
       const dx = body.position.x - originX
       const dy = body.position.y - originY
       const distance = Math.hypot(dx, dy)

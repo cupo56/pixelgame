@@ -42,20 +42,30 @@ const fireMeetsWater: ReactionHandler = (fire, water, ctx) => {
   if (result.extinguished) fireMaterial.quench(fire)
 }
 
+/** Feuer schmilzt Eis (mit etwas Dampf); der Feuerball fliegt weiter und explodiert am nächsten festen Körper. */
+const fireMeetsIce: ReactionHandler = (_fire, ice, ctx) => {
+  ctx.system.materials.ice?.melt(ice, true)
+}
+
+/** Scherben zerspringen am Erdblock. */
+const iceMeetsEarth: ReactionHandler = (ice, _earth, ctx) => {
+  if (ice.body.label === 'ice') ctx.system.materials.ice?.shatter(ice)
+}
+
 /**
  * Die Reaktionsmatrix des Designs. Die Materialien füllen die Handler über
  * `setReaction`; hier stehen nur die Zellen, die es überhaupt gibt.
  */
 export const REACTIONS = new Map<string, ReactionHandler>([
   ['fire:water', fireMeetsWater],
-  ['fire:ice', noop],
+  ['fire:ice', fireMeetsIce],
   ['fire:earth', noop],
   ['fire:sand', noop],
   ['fire:metal', noop],
   ['water:earth', noop],
   ['water:sand', noop],
   ['water:metal', noop],
-  ['ice:earth', noop],
+  ['ice:earth', iceMeetsEarth],
 ])
 
 /** Ersetzt den Handler einer vorhandenen Zelle; unbekannte Zellen sind ein Programmierfehler. */

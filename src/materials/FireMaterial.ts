@@ -154,7 +154,8 @@ export class FireMaterial {
     if (fireball?.kind !== 'fire' || other.isSensor || other.label === 'player') return
     // Stoffpaare mit eigener Reaktion (Wasser) regelt die Reaktionstabelle. Das Label greift auch,
     // wenn der Tropfen in derselben Kollision bereits verdampft und abgemeldet wurde.
-    if ((this.system.registry.kindOf(other) ?? kindOfLabel(other.label)) === 'water') return
+    const kind = this.system.registry.kindOf(other) ?? kindOfLabel(other.label)
+    if (kind === 'water' || (kind === 'ice' && other.label === 'ice')) return
     this.explode(fireball)
   }
 }

@@ -6,6 +6,7 @@ import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from
 import { damageEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
 import { steamCloud } from './SteamEffect.ts'
+import { coolWater } from './thermo.ts'
 import { kindOfLabel, type Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 import type { Puddle } from './Puddle.ts'
@@ -25,6 +26,8 @@ export interface Droplet extends Substance {
   readonly expiry: Phaser.Time.TimerEvent
   /** Zeitpunkt des letzten Geländekontakts (ms), für die Ruheerkennung. */
   groundedAt: number
+  /** Im Wirbelsturm gefangen: wird dort laufend gekühlt. */
+  inVortex: boolean
 }
 
 /** Wassertropfen: echte Körper mit Masse, Temperatur und begrenzter Lebenszeit; ruhend werden sie zur Pfütze. */
@@ -41,6 +44,8 @@ export class WaterMaterial {
     this.puddles = puddles
     system.attach('water', this)
     this.offStep = system.onStep(this.step.bind(this))
+    system.setWindHandler('water', (s, direction, strength) => this.wind(s, direction, strength))
+    system.setCaptureHandlers('water', (s) => this.capture(s), (s) => this.release(s))
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onContact, this)
   }
@@ -65,7 +70,7 @@ export class WaterMaterial {
     this.scene.matter.body.setVelocity(body, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed })
 
     const droplet: Droplet = {
-      kind: 'water', body, shape, groundedAt: -Infinity,
+      kind: 'water', body, shape, groundedAt: -Infinity, inVortex: false,
       expiry: this.scene.time.delayedCall(LIFETIME_MS, () => this.system.remove(droplet)),
       temperatureC: R.waterStartC, massKg: R.dropletMassKg, wetnessKg: 0, heatJ: 0, restingMs: 0,
       createdAt: this.scene.time.now,
@@ -98,9 +103,48 @@ export class WaterMaterial {
     for (const droplet of [...this.droplets]) this.system.remove(droplet)
   }
 
-  /** Ruhende Tropfen am Boden sammeln sich nach puddleRestMs zur Pfütze. */
+  /** Wind trägt Tropfen mit und kühlt sie; ≤ 0 °C → Eisscherbe. Pfützen werden nur gekühlt. */
+  private wind(s: Substance, direction: Phaser.Math.Vector2, strength: number): void {
+    const deltaK = R.gustCoolingK * strength
+    if (s.body.label === 'puddle') {
+      this.puddles.cool(s, deltaK)
+      return
+    }
+    const droplet = s as Droplet
+    if (!this.droplets.has(droplet)) return
+    const deltaV = metersPerSecondToMatter(R.gustCarrySpeedMs * strength)
+    this.scene.matter.body.setVelocity(droplet.body, {
+      x: droplet.body.velocity.x + direction.x * deltaV,
+      y: droplet.body.velocity.y + direction.y * deltaV,
+    })
+    this.chill(droplet, deltaK)
+  }
+
+  private chill(droplet: Droplet, deltaK: number): void {
+    const result = coolWater(droplet.temperatureC, deltaK)
+    droplet.temperatureC = result.tempC
+    if (result.frozen) this.system.materials.ice?.fromDroplet(droplet)
+  }
+
+  private capture(s: Substance): boolean {
+    const droplet = s as Droplet
+    if (!this.droplets.has(droplet) || droplet.inVortex) return false
+    droplet.inVortex = true
+    return true
+  }
+
+  private release(s: Substance): void {
+    const droplet = s as Droplet
+    if (this.droplets.has(droplet)) droplet.inVortex = false
+  }
+
+  /** Ruhende Tropfen am Boden sammeln sich nach puddleRestMs zur Pfütze; gefangene Tropfen kühlen aus. */
   private step(dtS: number, now: number): void {
     for (const droplet of [...this.droplets]) {
+      if (droplet.inVortex) {
+        this.chill(droplet, R.vortexCoolingKPerS * dtS)
+        if (!this.droplets.has(droplet)) continue
+      }
       const grounded = now - droplet.groundedAt <= 50
       const slow = matterToMetersPerSecond(droplet.body.speed) < RESTING_SPEED_MS
       droplet.restingMs = grounded && slow ? droplet.restingMs + dtS * 1000 : 0
