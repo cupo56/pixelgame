@@ -39,7 +39,8 @@ export class FlyingPlushEnemy {
       frictionAir: 0.025, friction: 0.1, restitution: 0.35,
       collisionFilter: {
         category: COLLISION_CATEGORY.enemy,
-        mask: COLLISION_CATEGORY.world | COLLISION_CATEGORY.player | COLLISION_CATEGORY.water,
+        mask: COLLISION_CATEGORY.world | COLLISION_CATEGORY.player | COLLISION_CATEGORY.water |
+          COLLISION_CATEGORY.ice | COLLISION_CATEGORY.sand | COLLISION_CATEGORY.metal,
         group: 0,
       },
     })
