@@ -47,6 +47,24 @@ export const coneBurst = (
   scene.time.delayedCall(BURST_CLEANUP_MS, () => emitter.destroy())
 }
 
+export const DUST_COLORS = [0xd9c3a0, 0xb08a5a, 0x6b5a45]
+
+/** Aufgewirbelter Erdstaub: fliegt nach oben weg und fällt mit Erdbeschleunigung. */
+export const dust = (scene: Phaser.Scene, x: number, y: number, count: number, maxSpeedPx: number): void => {
+  const emitter = scene.add.particles(x, y, SPARK_TEXTURE, {
+    lifespan: { min: 250, max: 600 },
+    angle: { min: 195, max: 345 },
+    speed: { min: maxSpeedPx * 0.3, max: maxSpeedPx },
+    gravityY: GRAVITY_MS2 * PIXELS_PER_METER,
+    scale: { start: 1.1, end: 0.2 },
+    alpha: { start: 0.8, end: 0 },
+    color: DUST_COLORS,
+    emitting: false,
+  }).setDepth(6)
+  emitter.explode(count)
+  scene.time.delayedCall(BURST_CLEANUP_MS, () => emitter.destroy())
+}
+
 /** Einmalige Funken-/Staubexplosion; Partikel fallen mit echter Erdbeschleunigung. */
 export const burst = (
   scene: Phaser.Scene,

@@ -1,11 +1,10 @@
 import Phaser from 'phaser'
 import type { Attack } from './Attack.ts'
 import { COLLISION_CATEGORY } from '../config/collision.ts'
-import { AIR_DRAG, GRAVITY_MS2, PIXELS_PER_METER, matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
-import { SPARK_TEXTURE } from '../effects/particles.ts'
+import { AIR_DRAG, GRAVITY_MS2, PIXELS_PER_METER, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
+import { DUST_COLORS, SPARK_TEXTURE, dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
-import { damageEnemy } from '../combat/damage.ts'
-import { COMBAT } from '../config/combat.ts'
+import { EarthMaterial, LAUNCH_MASK } from '../materials/EarthMaterial.ts'
 
 const ROCK_SIZE_M = 0.5
 const CHARGED_SIZE_M = 1.5
@@ -21,17 +20,7 @@ const HOLD_MS = 80
 const GROUND_REACH_M = 1.75
 const SIDE_REACH_M = 2.5
 const CONTROL_REACH_M = 4
-const ROCK_LIFETIME_MS = 10_000
-const OWNER_GRACE_MS = 220
 const SPIN_RAD_PER_STEP = 0.025
-const IMPACT_MIN_SPEED_MS = 3
-/** Elementkombination: Windschub skaliert mit Fläche/Masse, also 1/Kantenlänge. */
-const AIR_BOOST_MS = 18
-const AIR_MAX_SPEED_MS = 30
-const AIR_LIFT_MS = 4.5
-const DUST_COLORS = [0xd9c3a0, 0xb08a5a, 0x6b5a45]
-const ALL_CATEGORIES = 0xffffffff
-const LAUNCH_MASK = (ALL_CATEGORIES & ~COLLISION_CATEGORY.player) >>> 0
 
 interface GroundSource {
   x: number
@@ -56,22 +45,13 @@ interface Lift {
   blocked: boolean
 }
 
-interface Rock {
-  shape: Phaser.GameObjects.Rectangle
-  expiresAt: number
-  solidToPlayerAt: number
-  damage: number
-  hitTargets: Set<MatterJS.BodyType>
-  inTornado?: boolean
-}
-
 interface Effect {
   view: Phaser.GameObjects.Graphics | Phaser.GameObjects.Particles.ParticleEmitter
   expiresAt: number
   fade: boolean
 }
 
-/** Hebt Erde aus echtem Gelände; erst beim Abschuss übernimmt die Flugphysik. */
+/** Hebt Erde aus echtem Gelände; beim Abschuss übernimmt EarthMaterial den Block. */
 export class EarthRockAttack implements Attack {
   readonly name = 'Erdstoß'
   readonly cooldownMs = 650
@@ -80,17 +60,18 @@ export class EarthRockAttack implements Attack {
 
   private readonly scene: Phaser.Scene
   private readonly playerBody: MatterJS.BodyType
+  private readonly earth: EarthMaterial
   private readonly onLaunch: (charge: number) => void
   private readonly aim = new Phaser.Math.Vector2(1, 0)
-  private readonly rocks = new Map<MatterJS.BodyType, Rock>()
   private readonly effects = new Set<Effect>()
   private readonly chargeGraphics: Phaser.GameObjects.Graphics
   private readonly chargeText: Phaser.GameObjects.Text
   private lifting?: Lift
 
-  constructor(scene: Phaser.Scene, playerBody: MatterJS.BodyType, onLaunch: (charge: number) => void) {
+  constructor(scene: Phaser.Scene, playerBody: MatterJS.BodyType, earth: EarthMaterial, onLaunch: (charge: number) => void) {
     this.scene = scene
     this.playerBody = playerBody
+    this.earth = earth
     this.onLaunch = onLaunch
     this.chargeGraphics = scene.add.graphics().setDepth(15).setVisible(false)
     this.chargeText = scene.add.text(0, 0, '', {
@@ -98,7 +79,6 @@ export class EarthRockAttack implements Attack {
       backgroundColor: '#29251f', padding: { x: 3, y: 2 },
     }).setOrigin(0.5, 1).setDepth(16).setVisible(false)
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.update, this)
-    scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
 
   updateAim(_origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): void {
@@ -135,7 +115,7 @@ export class EarthRockAttack implements Attack {
       releaseStartY: 0, releaseDurationMs: 0, nextDustAt: 0, nextShakeAt: 0, blocked: false,
     }
     this.crackGround(source)
-    this.dust(source.x, source.y - 2, 16, 75)
+    dust(this.scene, source.x, source.y - 2, 16, 75)
     screenShake(this.scene, 0.002, 90)
     return true
   }
@@ -167,69 +147,9 @@ export class EarthRockAttack implements Attack {
     if (this.lifting?.mode === 'waiting' || this.lifting?.mode === 'charging') this.cancel()
   }
 
-  isRock(body: MatterJS.BodyType): boolean { return this.rocks.has(body) }
-
-  captureInTornado(body: MatterJS.BodyType): boolean {
-    const rock = this.rocks.get(body)
-    if (!rock || rock.inTornado) return false
-    rock.inTornado = true
-    rock.hitTargets.clear()
-    rock.expiresAt = Infinity
-    rock.solidToPlayerAt = Infinity
-    body.collisionFilter.mask = LAUNCH_MASK
-    return true
-  }
-
-  releaseFromTornado(body: MatterJS.BodyType): void {
-    const rock = this.rocks.get(body)
-    if (!rock) return
-    rock.inTornado = false
-    rock.hitTargets.clear()
-    rock.expiresAt = this.scene.time.now + ROCK_LIFETIME_MS
-    rock.solidToPlayerAt = this.scene.time.now + OWNER_GRACE_MS
-  }
-
-  /** Vorhandenen Schwung erhalten; Luft kann denselben Block erneut als Geschoss nutzen. */
-  pushWithAir(body: MatterJS.BodyType, direction: Phaser.Math.Vector2, strength: number): boolean {
-    const rock = this.rocks.get(body)
-    if (!rock) return false
-    if (strength <= 0) return true
-    const deltaV = metersPerSecondToMatter(AIR_BOOST_MS * Math.cbrt(ROCK_MASS_KG / body.mass) * strength)
-    let vx = body.velocity.x + direction.x * deltaV
-    let vy = body.velocity.y + direction.y * deltaV
-    const supportY = direction.y < 0.65 ? this.supportY(body) : undefined
-    if (supportY !== undefined) {
-      // Bodenreibung darf den Stoß nicht sofort schlucken. Leicht anheben, außer beim Zielen nach unten.
-      vy = Math.min(vy, -metersPerSecondToMatter(AIR_LIFT_MS * Math.sqrt(strength)))
-      this.dust(body.position.x, supportY, 12, 60)
-    }
-    // Wiederholte Stöße bleiben kontrollierbar, ohne bestehendes höheres Tempo abzubremsen.
-    const limit = Math.max(metersPerSecondToMatter(AIR_MAX_SPEED_MS), Math.hypot(body.velocity.x, body.velocity.y))
-    const speed = Math.hypot(vx, vy)
-    if (speed > limit) { vx *= limit / speed; vy *= limit / speed }
-    this.scene.matter.body.setVelocity(body, { x: vx, y: vy })
-    rock.hitTargets.clear()
-    rock.expiresAt = this.scene.time.now + ROCK_LIFETIME_MS
-    return true
-  }
-
-  private supportY(body: MatterJS.BodyType): number | undefined {
-    const vertices = body.vertices
-    if (!vertices?.length) return undefined
-    const bottom = Math.max(...vertices.map((v) => v.y))
-    const width = Math.max(...vertices.map((v) => v.x)) - Math.min(...vertices.map((v) => v.x))
-    const probe = this.scene.matter.bodies.rectangle(body.position.x, bottom + 1, Math.max(2, width - 4), 4)
-    const supports = this.scene.matter.world.getAllBodies().filter((other) =>
-      other !== body && !other.isSensor && (other.isStatic || this.rocks.has(other)) && other.bounds.min.y >= bottom - 4,
-    )
-    return this.scene.matter.overlap(probe, supports) ? bottom : undefined
-  }
-
   destroy(): void {
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.update, this)
-    this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     this.cancel()
-    for (const body of [...this.rocks.keys()]) this.remove(body)
     for (const effect of this.effects) effect.view.destroy()
     this.effects.clear()
     this.chargeGraphics.destroy()
@@ -291,13 +211,6 @@ export class EarthRockAttack implements Attack {
         this.updateLift(lift, Math.min(deltaMs, 50), now)
       }
     }
-    for (const [body, rock] of this.rocks) {
-      if (now >= rock.expiresAt) this.remove(body)
-      else if (now >= rock.solidToPlayerAt && body.collisionFilter.mask === LAUNCH_MASK && !this.scene.matter.overlap(body, [this.playerBody])) {
-        // Kurzer Schutz beim Abschuss; danach bleibt der Block ein festes Hindernis.
-        body.collisionFilter.mask = ALL_CATEGORIES
-      }
-    }
     for (const effect of this.effects) {
       if (now >= effect.expiresAt) {
         effect.view.destroy()
@@ -346,7 +259,7 @@ export class EarthRockAttack implements Attack {
     const startY = lift.mode === 'quick' ? lift.source.y + lift.size / 2 : lift.releaseStartY
     lift.centerY = Phaser.Math.Linear(startY, lift.launchY, 1 - (1 - t) ** 3)
     this.showLift(lift)
-    if (lift.elapsed >= duration + (lift.mode === 'quick' ? HOLD_MS : 0)) this.launch(lift, now)
+    if (lift.elapsed >= duration + (lift.mode === 'quick' ? HOLD_MS : 0)) this.launch(lift)
   }
 
   private showLift(lift: Lift, jitterX = 0): void {
@@ -381,11 +294,12 @@ export class EarthRockAttack implements Attack {
     if (this.chargeText.scene) this.chargeText.setVisible(false)
   }
 
-  private launch(lift: Lift, now: number): void {
+  private launch(lift: Lift): void {
     this.lifting = undefined
     this.hideCharge()
     const size = lift.size
-    const mass = (size / PIXELS_PER_METER) ** 3 * EARTH_DENSITY_KG_M3
+    const edgeM = size / PIXELS_PER_METER
+    const mass = edgeM ** 3 * EARTH_DENSITY_KG_M3
     lift.shape.setVisible(true).setSize(size, size).setPosition(lift.source.x, lift.launchY)
     const body = this.scene.matter.add.rectangle(lift.source.x, lift.launchY, size, size, {
       label: 'rock',
@@ -400,11 +314,8 @@ export class EarthRockAttack implements Attack {
     const speed = metersPerSecondToMatter(Phaser.Math.Linear(Math.sqrt(2 * this.energyJoules / ROCK_MASS_KG), CHARGED_SPEED_MS, lift.charge))
     this.scene.matter.body.setVelocity(body, { x: this.aim.x * speed, y: this.aim.y * speed })
     this.scene.matter.body.setAngularVelocity(body, SPIN_RAD_PER_STEP / (1 + lift.charge * 2) * Math.sign(this.aim.x || 1))
-    this.rocks.set(body, {
-      shape: lift.shape, expiresAt: now + ROCK_LIFETIME_MS, solidToPlayerAt: now + OWNER_GRACE_MS,
-      damage: Math.round(Phaser.Math.Linear(COMBAT.earthDamage, COMBAT.chargedEarthDamage, lift.charge)), hitTargets: new Set(),
-    })
-    this.dust(lift.source.x, lift.launchY, Math.round(5 + lift.charge * 25), 30 + lift.charge * 60)
+    this.earth.adopt(body, lift.shape, lift.charge, edgeM)
+    dust(this.scene, lift.source.x, lift.launchY, Math.round(5 + lift.charge * 25), 30 + lift.charge * 60)
     screenShake(this.scene, 0.0025 + lift.charge * 0.006, 100)
     this.onLaunch(lift.charge)
   }
@@ -432,46 +343,5 @@ export class EarthRockAttack implements Attack {
     g.lineStyle(1, ROCK_OUTLINE).lineBetween(x - 9, y + 1, x - 13, y + 6)
     g.lineBetween(x + 6, y + 1, x + 11, y + 5)
     this.effects.add({ view: g, expiresAt: this.scene.time.now + 1000, fade: true })
-  }
-
-  private dust(x: number, y: number, count: number, speed: number): void {
-    const emitter = this.scene.add.particles(x, y, SPARK_TEXTURE, {
-      lifespan: { min: 250, max: 600 },
-      angle: { min: 195, max: 345 },
-      speed: { min: speed * 0.3, max: speed },
-      gravityY: GRAVITY_MS2 * PIXELS_PER_METER,
-      scale: { start: 1.1, end: 0.2 },
-      alpha: { start: 0.8, end: 0 },
-      color: DUST_COLORS,
-      emitting: false,
-    }).setDepth(6)
-    emitter.explode(count)
-    this.effects.add({ view: emitter, expiresAt: this.scene.time.now + 700, fade: false })
-  }
-
-  private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
-    for (const pair of event.pairs) {
-      this.impact(pair.bodyA.parent, pair.bodyB.parent)
-      this.impact(pair.bodyB.parent, pair.bodyA.parent)
-    }
-  }
-
-  private impact(body: MatterJS.BodyType, other: MatterJS.BodyType): void {
-    const rock = this.rocks.get(body)
-    if (!rock || other.isSensor) return
-    const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
-    if (speedMs < IMPACT_MIN_SPEED_MS) return
-    if (!rock.hitTargets.has(other) && damageEnemy(other, rock.damage)) rock.hitTargets.add(other)
-    const energy = 0.5 * body.mass * speedMs ** 2
-    this.dust(body.position.x, body.position.y, Math.min(32, Math.round(energy / 900) + 6), Math.min(150, speedMs * 10))
-    screenShake(this.scene, Math.min(0.018, energy / 1_500_000), 100)
-  }
-
-  private remove(body: MatterJS.BodyType): void {
-    const rock = this.rocks.get(body)
-    if (!rock) return
-    this.rocks.delete(body)
-    this.scene.matter.world?.remove(body)
-    rock.shape.destroy()
   }
 }

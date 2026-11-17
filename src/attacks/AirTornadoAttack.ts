@@ -4,6 +4,7 @@ import { GRAVITY_MS2, PHYSICS_FPS, metersPerSecondToMatter, metersToPixels } fro
 import { damageEnemy, holdEnemyInWind, isEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
+import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const CHARGE_MS = 2000
 const MAX_STEP = metersToPixels(0.6)
@@ -16,12 +17,6 @@ export interface AirPose {
   support: Phaser.Math.Vector2
   phase: number
   prone: number
-}
-
-export interface TornadoRocks {
-  has: (body: MatterJS.BodyType) => boolean
-  capture: (body: MatterJS.BodyType) => boolean
-  release: (body: MatterJS.BodyType) => void
 }
 
 interface Ground { x: number; y: number; body: MatterJS.BodyType }
@@ -50,7 +45,7 @@ export class AirTornadoAttack {
   private readonly scene: Phaser.Scene
   private readonly player: MatterJS.BodyType
   private readonly getPose: () => AirPose
-  private readonly rocks: TornadoRocks
+  private readonly system: ReactionSystem
   private readonly back: Phaser.GameObjects.Graphics
   private readonly front: Phaser.GameObjects.Graphics
   private readonly label: Phaser.GameObjects.Text
@@ -59,11 +54,11 @@ export class AirTornadoAttack {
   private charging?: Charge
   private readonly tornadoes = new Set<Tornado>()
 
-  constructor(scene: Phaser.Scene, player: MatterJS.BodyType, getPose: () => AirPose, rocks: TornadoRocks) {
+  constructor(scene: Phaser.Scene, player: MatterJS.BodyType, getPose: () => AirPose, system: ReactionSystem) {
     this.scene = scene
     this.player = player
     this.getPose = getPose
-    this.rocks = rocks
+    this.system = system
     this.back = scene.add.graphics().setDepth(8).setVisible(false)
     this.front = scene.add.graphics().setDepth(14).setVisible(false)
     this.label = scene.add.text(0, 0, '', {
@@ -194,20 +189,20 @@ export class AirTornadoAttack {
       if (growth > 0.8) for (const body of bodies) {
         if (body === this.player || body.isStatic || body.isSensor || tornado.seen.has(body) || tornado.captured.size >= 12) continue
         if ([...this.tornadoes].some(other => other !== tornado && other.captured.has(body))) continue
-        const rock = this.rocks.has(body)
+        const rock = this.system.canCapture(body)
         if (!rock && !isEnemy(body)) continue
         const extent = this.extent(body)
         const dx = (body.position.x - tornado.x) / (tornado.radius + extent * 0.6)
         const dy = (body.position.y - centerY) / (tornado.height * 0.55 + extent)
         if (dx * dx + dy * dy > 1 || extent * 2 + 12 > tornado.height) continue
         if (this.scene.matter.query.ray(terrain, { x: tornado.x, y: centerY }, body.position, 2).length) continue
-        if (rock ? !this.rocks.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)))) continue
+        if (rock ? !this.system.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)))) continue
         tornado.seen.add(body)
         if (!rock && !isEnemy(body)) continue
         tornado.captured.set(body, { angle: Math.atan2(dy, dx), extent, rock, elapsed: 0 })
       }
       for (const [body, orbit] of tornado.captured) {
-        if (!present.has(body) || (orbit.rock ? !this.rocks.has(body) : !isEnemy(body))) {
+        if (!present.has(body) || (orbit.rock ? !this.system.canCapture(body) : !isEnemy(body))) {
           tornado.captured.delete(body)
           continue
         }
@@ -248,7 +243,7 @@ export class AirTornadoAttack {
 
   private releaseBody(tornado: Tornado, body: MatterJS.BodyType, orbit: Orbit, throwOut: boolean): void {
     tornado.captured.delete(body)
-    if (orbit.rock) this.rocks.release(body)
+    if (orbit.rock) this.system.release(body)
     else holdEnemyInWind(body, 400)
     if (!throwOut) return
     const massScale = Math.cbrt(Math.max(225, body.mass) / 225)

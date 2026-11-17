@@ -6,6 +6,8 @@ import { FireballAttack } from '../attacks/FireballAttack.ts'
 import { WaterJetAttack } from '../attacks/WaterJetAttack.ts'
 import { ELEMENTS, type ElementId, type ElementInfo } from '../config/elements.ts'
 import type { Player } from '../entities/Player.ts'
+import { ReactionSystem } from '../materials/ReactionSystem.ts'
+import { EarthMaterial } from '../materials/EarthMaterial.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -23,6 +25,9 @@ const ELEMENT_KEY_NAMES = ['ONE', 'TWO', 'THREE', 'FOUR'] as const
 export class ElementController {
   private readonly scene: Phaser.Scene
   private readonly player: Player
+  /** Zentrales Reaktionssystem aller Stoffe; für Browserprüfungen öffentlich. */
+  readonly system: ReactionSystem
+  private readonly earthMaterial: EarthMaterial
   private readonly earth: EarthRockAttack
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
@@ -37,19 +42,15 @@ export class ElementController {
   constructor(scene: Phaser.Scene, player: Player) {
     this.scene = scene
     this.player = player
-    this.earth = new EarthRockAttack(scene, player.body, (charge) => {
+    this.system = new ReactionSystem(scene)
+    this.earthMaterial = new EarthMaterial(scene, this.system, player.body)
+    this.earth = new EarthRockAttack(scene, player.body, this.earthMaterial, (charge) => {
       // Kleine/teilgeladene Blöcke brauchen nach dem Loslassen noch Zeit zum Anheben.
       if (this.selected.id === 'earth') player.cast(charge > 0 ? 'earth-charged' : 'earth')
     })
     this.fire = new FireballAttack(scene, () => player.getCastOrigin())
     this.water = new WaterJetAttack(scene, () => player.getWaterPose(), (body) => this.fire.extinguish(body))
-    this.air = new AirGustAttack(scene, player.body,
-      (body, direction, strength) => this.earth.pushWithAir(body, direction, strength),
-      () => player.getAirPose(), {
-        has: (body) => this.earth.isRock(body),
-        capture: (body) => this.earth.captureInTornado(body),
-        release: (body) => this.earth.releaseFromTornado(body),
-      })
+    this.air = new AirGustAttack(scene, player.body, this.system, () => player.getAirPose())
     this.attacks = {
       earth: this.earth,
       fire: this.fire,
@@ -282,6 +283,8 @@ export class ElementController {
     for (const attack of Object.values(this.attacks)) {
       attack?.destroy()
     }
+    this.earthMaterial.destroy()
+    this.system.destroy()
   }
 }
 

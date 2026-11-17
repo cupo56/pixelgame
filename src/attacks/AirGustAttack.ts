@@ -5,7 +5,8 @@ import { coneBurst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { damageEnemy } from '../combat/damage.ts'
 import { COMBAT } from '../config/combat.ts'
-import { AirTornadoAttack, type AirPose, type TornadoRocks } from './AirTornadoAttack.ts'
+import { AirTornadoAttack, type AirPose } from './AirTornadoAttack.ts'
+import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const RANGE_M = 7
 const HALF_ANGLE_RAD = (35 * Math.PI) / 180
@@ -17,8 +18,6 @@ const WIND_COLORS = [0xffffff, 0xcfe9f2, 0x8fc4d6]
 const STREAK_COUNT = 28
 const STREAK_SPEED_PX = 420
 
-type PushEarthBlock = (body: MatterJS.BodyType, direction: Phaser.Math.Vector2, strength: number) => boolean
-
 /** Windstoß im Kegel: drückt bewegliche Körper in Zielrichtung und stößt den Spieler zurück. */
 export class AirGustAttack implements Attack {
   readonly name = 'Windstoß'
@@ -28,14 +27,14 @@ export class AirGustAttack implements Attack {
 
   private readonly scene: Phaser.Scene
   private readonly playerBody: MatterJS.BodyType
-  private readonly pushEarthBlock: PushEarthBlock
+  private readonly system: ReactionSystem
   private readonly tornado: AirTornadoAttack
 
-  constructor(scene: Phaser.Scene, playerBody: MatterJS.BodyType, pushEarthBlock: PushEarthBlock, getPose: () => AirPose, rocks: TornadoRocks) {
+  constructor(scene: Phaser.Scene, playerBody: MatterJS.BodyType, system: ReactionSystem, getPose: () => AirPose) {
     this.scene = scene
     this.playerBody = playerBody
-    this.pushEarthBlock = pushEarthBlock
-    this.tornado = new AirTornadoAttack(scene, playerBody, getPose, rocks)
+    this.system = system
+    this.tornado = new AirTornadoAttack(scene, playerBody, getPose, system)
   }
 
   get isCharging(): boolean { return this.tornado.isCharging }
@@ -76,9 +75,9 @@ export class AirGustAttack implements Attack {
     const rangePx = metersToPixels(RANGE_M)
     const minCos = Math.cos(HALF_ANGLE_RAD)
     for (const body of this.scene.matter.world.getAllBodies()) {
-      if (body.isStatic || body.isSensor || body === this.playerBody) {
-        continue
-      }
+      if (body.isStatic || body === this.playerBody) continue
+      // Sensoren sind nur als registrierte Stoffe (z. B. Feuerbälle) windempfindlich.
+      if (body.isSensor && !this.system.registry.get(body)) continue
       const dx = body.position.x - originX
       const dy = body.position.y - originY
       const distance = Math.hypot(dx, dy)
@@ -90,12 +89,13 @@ export class AirGustAttack implements Attack {
       }
       const strength = 1 - distance / rangePx
       if (strength <= 0) continue
-      if (this.pushEarthBlock(body, direction, strength)) {
-        // Ein heller Luftfächer am Block macht den zusätzlichen Schub sichtbar.
+      if (this.system.applyWind(body, direction, strength, 'gust')) {
+        // Ein heller Luftfächer am Stoff macht den zusätzlichen Schub sichtbar.
         coneBurst(this.scene, body.position.x, body.position.y, Math.atan2(direction.y, direction.x),
           HALF_ANGLE_RAD * 0.4, WIND_COLORS, 12, STREAK_SPEED_PX * 0.65)
         continue
       }
+      if (body.isSensor) continue
       damageEnemy(body, Math.ceil(COMBAT.airDamage * strength))
       const deltaV = metersPerSecondToMatter((IMPULSE_NS * strength) / body.mass)
       this.scene.matter.body.setVelocity(body, {
