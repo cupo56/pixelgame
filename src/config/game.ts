@@ -16,7 +16,8 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   roundPixels: true,
   scale: {
-    mode: Phaser.Scale.FIT,
+    // Füllt den ganzen Bereich ohne schwarze Balken; bei abweichendem Seitenverhältnis wird ein schmaler Rand abgeschnitten.
+    mode: Phaser.Scale.ENVELOP,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   physics: {

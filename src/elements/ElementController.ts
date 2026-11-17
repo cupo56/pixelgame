@@ -8,6 +8,7 @@ import { ELEMENTS, type ElementId, type ElementInfo } from '../config/elements.t
 import type { Player } from '../entities/Player.ts'
 import { progression } from '../progression/Progression.ts'
 import { ReactionSystem } from '../materials/ReactionSystem.ts'
+import { HudBar } from '../ui/HudBar.ts'
 import { EarthMaterial } from '../materials/EarthMaterial.ts'
 import { FireMaterial } from '../materials/FireMaterial.ts'
 import { WaterMaterial } from '../materials/WaterMaterial.ts'
@@ -19,10 +20,6 @@ import { MetalMaterial } from '../materials/MetalMaterial.ts'
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
 const RETICLE_RADIUS_PX = 3
-const HUD_X = 28
-const HUD_Y = 505
-const HUD_SPACING_PX = 110
-const INACTIVE_ALPHA = 0.75
 /** Wie bei Erde: kurzes Tippen wirft, ab 180 ms Haltezeit beginnt die Aufladung. */
 const HOLD_CHARGE_DELAY_MS = 180
 /** Tasten 1-4, gleiche Reihenfolge wie ELEMENTS. */
@@ -47,7 +44,7 @@ export class ElementController {
   private readonly air: AirGustAttack
   private readonly attacks: Partial<Record<ElementId, Attack>>
   private readonly nextReadyAt = new Map<ElementId, number>()
-  private readonly hudTexts: Phaser.GameObjects.Text[]
+  private readonly hud = HudBar.get()
   private readonly aimGraphics: Phaser.GameObjects.Graphics
   private selected: ElementInfo = ELEMENTS[0]
   private heldCast?: { element: 'fire' | 'water' | 'air'; pressedAt: number }
@@ -93,16 +90,6 @@ export class ElementController {
     scene.game.events.on(Phaser.Core.Events.BLUR, this.cancelPreparedAttack, this)
 
     this.aimGraphics = scene.add.graphics().setDepth(50)
-    this.hudTexts = ELEMENTS.map((element, index) =>
-      scene.add
-        .text(HUD_X + index * HUD_SPACING_PX, HUD_Y, this.hudLabel(element, index), {
-          fontFamily: 'monospace',
-          fontSize: '12px',
-          color: hexColor(element.color),
-        })
-        .setScrollFactor(0)
-        .setDepth(100),
-    )
     this.refreshHud()
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this)
   }
@@ -284,16 +271,9 @@ export class ElementController {
     g.strokeCircle(target.x, target.y, RETICLE_RADIUS_PX)
   }
 
-  private hudLabel(element: ElementInfo, index: number): string {
-    return `${index + 1} ${element.label}${element.implemented ? '' : ' (bald)'}`
-  }
 
   private refreshHud(): void {
-    this.hudTexts.forEach((text, index) => {
-      const active = ELEMENTS[index].id === this.selected.id
-      text.setText(`${active ? '›' : ' '} ${this.hudLabel(ELEMENTS[index], index)}`)
-      text.setAlpha(active ? 1 : INACTIVE_ALPHA)
-    })
+    this.hud.selectElement(this.selected.id)
   }
 
   private destroy(): void {
@@ -320,4 +300,3 @@ export class ElementController {
   }
 }
 
-const hexColor = (color: number): string => `#${color.toString(16).padStart(6, '0')}`

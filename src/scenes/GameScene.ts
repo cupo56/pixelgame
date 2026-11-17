@@ -4,10 +4,8 @@ import { Player } from '../entities/Player.ts'
 import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
 import { COMBAT, TEST_ENEMIES } from '../config/combat.ts'
 import { CAMP, Grenzland, LANDMARKS, LIFT, WORLD } from '../world/Grenzland.ts'
-import { StatusBar } from '../ui/StatusBar.ts'
+import { HudBar } from '../ui/HudBar.ts'
 import { SkillTreePanel } from '../ui/SkillTreePanel.ts'
-import { progression } from '../progression/Progression.ts'
-import { ELEMENTS } from '../config/elements.ts'
 import { screenShake } from '../effects/juice.ts'
 
 const SAVE_KEY = 'elements.grenzland.v1'
@@ -16,9 +14,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Player
   private elements!: ElementController
   private enemies: FlyingPlushEnemy[] = []
-  /** Scharfe HTML-Statusleiste über dem Canvas (Leben, Ort, Gegner, Grenzsteine). */
-  readonly statusBar = StatusBar.get()
-  private hintText!: Phaser.GameObjects.Text
+  /** Scharfe HTML-Leiste unten (Leben, Elemente, Ort). */
+  readonly hud = HudBar.get()
   private map!: Phaser.GameObjects.Container
   private mapPlayer!: Phaser.GameObjects.Arc
   private interact!: Phaser.Input.Keyboard.Key
@@ -27,18 +24,14 @@ export class GameScene extends Phaser.Scene {
   private testReset!: Phaser.Input.Keyboard.Key
   private markers: { id: string; view: Phaser.GameObjects.Container }[] = []
   private found = new Set<string>()
-  private toastUntil = 0
-  private saveAvailable = true
   private skills!: SkillTreePanel
 
   constructor() { super('GameScene') }
 
   create(): void {
-    this.statusBar.setVisible(true)
+    this.hud.setVisible(true)
     this.markers = []
     this.found = new Set()
-    this.saveAvailable = true
-    this.toastUntil = 0
     this.loadProgress()
     new Grenzland(this)
     this.player = new Player(this, CAMP.x, CAMP.y)
@@ -59,32 +52,20 @@ export class GameScene extends Phaser.Scene {
     this.mapKey = keyboard.addKey('M')
     this.testReset = keyboard.addKey('T')
     keyboard.addCapture(['SPACE'])
-    this.createHud()
     this.createMarkers()
     this.createMap()
+    this.refreshHealth()
     this.skills = new SkillTreePanel(() => this.closeSkills())
-    const unbindSkills = this.statusBar.onSkills(() => this.openSkills())
     document.addEventListener('keydown', this.onMenuKey, true)
-    const levels = new Map(ELEMENTS.map(element => [element.id, progression.get(element.id).level]))
-    const unsubscribe = progression.subscribe(() => {
-      for (const element of ELEMENTS) {
-        const level = progression.get(element.id).level
-        if (level > levels.get(element.id)!) this.toast(`${element.label} · Stufe ${level} erreicht! Neue Skillpunkte mit K verteilen.`)
-        levels.set(element.id, level)
-      }
-    })
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       document.removeEventListener('keydown', this.onMenuKey, true)
-      unsubscribe()
-      unbindSkills()
       this.skills.destroy()
       keyboard.resetKeys()
-      this.statusBar.setVisible(false)
+      this.hud.setVisible(false)
     })
-    this.toast('Rechts vom Lager: fliegende Plüschgegner · je 30 LP · T startet den Test neu.', 6000)
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     if (Phaser.Input.Keyboard.JustDown(this.testReset)) {
       this.scene.restart()
       return
@@ -92,22 +73,18 @@ export class GameScene extends Phaser.Scene {
     if (!this.player.health.alive) {
       this.player.restoreHealth()
       this.travel(CAMP.x, CAMP.y)
-      this.toast('Zurück am Lager · Leben aufgefüllt. Mit T kannst du die Testgegner neu starten.')
     }
     this.elements.update()
     this.player.render(delta)
     for (const enemy of this.enemies) enemy.render()
     this.refreshHealth()
     const { x, y } = this.player.body.position
-    if (y > 1080) this.statusBar.setRegion(2, 'Die Kristallgrotte')
-    else if (y < 620) this.statusBar.setRegion(3, 'Die Himmelsinseln')
-    else this.statusBar.setRegion(1, 'Das Grenzland')
+    this.hud.setRegion(y > 1080 ? 'Die Kristallgrotte' : y < 620 ? 'Die Himmelsinseln' : 'Das Grenzland')
     if (Phaser.Input.Keyboard.JustDown(this.mapKey)) this.map.setVisible(!this.map.visible)
     this.mapPlayer.setPosition(190 + x / WORLD.width * 580, 120 + y / WORLD.height * 240)
     if (Phaser.Input.Keyboard.JustDown(this.recall) || y > WORLD.height - 70) {
       this.player.restoreHealth()
       this.travel(CAMP.x, CAMP.y)
-      this.toast('Zurück am Lagerfeuer. Deine Entdeckungen bleiben erhalten.')
     }
     const nearLift = Math.abs(x - LIFT.x) < 65 && (Math.abs(y - LIFT.bottom) < 55 || Math.abs(y - LIFT.top) < 55)
     const nearCaveLift = Math.abs(x - 2520) < 65 && Math.abs(y - 1448) < 65
@@ -125,14 +102,7 @@ export class GameScene extends Phaser.Scene {
         this.found.add(marker.id)
         marker.view.setAlpha(0.3)
         this.persistProgress()
-        this.refreshProgress()
-        this.toast(this.found.size === 3
-          ? 'Grenzland erkundet! Alle drei Grenzsteine sind gefunden.'
-          : `${landmark.name} entdeckt · Grenzstein ${this.found.size} / 3`, 5000)
       }
-    }
-    if (time > this.toastUntil) {
-      this.hintText.setText(nearLift || nearCaveLift ? 'E  Aufzug benutzen' : 'A/D Laufen · S Bauchlage · SPACE Sprung · M Karte · K Skills · ESC Startmenü')
     }
   }
 
@@ -177,8 +147,7 @@ export class GameScene extends Phaser.Scene {
 
   private refreshHealth(): void {
     const { current, max } = this.player.health
-    this.statusBar.setHealth(current, max)
-    this.statusBar.setEnemies(this.enemies.filter((enemy) => enemy.health.alive).length, TEST_ENEMIES.length)
+    this.hud.setHealth(current, max)
   }
 
   private travel(x: number, y: number): void {
@@ -189,20 +158,6 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.flash(250, 155, 209, 196, false)
   }
 
-  private createHud(): void {
-    // Die obere Leiste ist HTML (StatusBar); auf dem Canvas bleibt nur die untere Elementleiste.
-    const panel = this.add.graphics().setScrollFactor(0).setDepth(99)
-    panel.fillStyle(0x0c1c26, 0.95).fillRect(0, 480, 960, 60)
-    const text = (x: number, y: number, value: string, size: number, color: string) => this.add.text(x, y, value, {
-      fontFamily: 'monospace', fontSize: `${size}px`, color,
-    }).setScrollFactor(0).setDepth(100)
-    this.hintText = text(480, 463, '', 10, '#e0d5b4').setOrigin(0.5, 1)
-    this.hintText.setBackgroundColor('#10232c').setPadding(10, 7)
-    text(500, 505, 'MAUSRAD: ELEMENT', 10, '#9bb7af')
-    text(930, 505, '4 LUFT + SPACE: GLEITEN', 10, '#9bb7af').setOrigin(1, 0)
-    this.refreshProgress()
-    this.refreshHealth()
-  }
 
   private createMarkers(): void {
     for (const landmark of LANDMARKS) {
@@ -245,24 +200,17 @@ export class GameScene extends Phaser.Scene {
     label(175, 406, 'M schließen · R zurück zum Lager · Aufzüge mit E')
   }
 
-  private refreshProgress(): void {
-    this.statusBar.setStones(this.found.size, LANDMARKS.length, this.saveAvailable)
-  }
 
-  private toast(message: string, duration = 3500): void {
-    this.hintText.setText(message)
-    this.toastUntil = this.time.now + duration
-  }
 
   private loadProgress(): void {
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(SAVE_KEY) ?? '[]')
       if (Array.isArray(saved)) this.found = new Set(saved.filter((id): id is string => typeof id === 'string' && LANDMARKS.some((entry) => entry.id === id)))
-    } catch { this.saveAvailable = false }
+    } catch { /* Speicher blockiert: Entdeckungen gelten nur für diese Sitzung. */ }
   }
 
   private persistProgress(): void {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify([...this.found])) }
-    catch { this.saveAvailable = false }
+    catch { /* Speicher blockiert: Entdeckungen gelten nur für diese Sitzung. */ }
   }
 }

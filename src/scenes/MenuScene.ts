@@ -23,8 +23,8 @@ export class MenuScene extends Phaser.Scene {
     // müssen Space/Enter wieder native Buttons und Checkboxen bedienen können.
     this.input.keyboard?.clearCaptures()
     this.cameras.main.setBackgroundColor('#071820')
-    const statusBar = document.getElementById('statusbar')
-    if (statusBar) statusBar.style.display = 'none'
+    const hud = document.getElementById('hudbar')
+    if (hud) hud.style.display = 'none'
     document.getElementById('main-menu')?.remove()
     this.listeners = new AbortController()
     const root = document.createElement('main')
