@@ -100,6 +100,11 @@ export class SpikeSphere {
       this.scene.matter.body.setVelocity(spike.body, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed })
     })
     const center = this.center()
+    // Spitzen, die beim Kreisen im Gelände stecken, starten aus der Kugelmitte, sonst blieben sie sofort hängen.
+    const solids = this.scene.matter.world.getAllBodies().filter((body) => !body.isSensor && (body.isStatic || body.label === 'rock'))
+    for (const spike of orbiting) {
+      if (this.scene.matter.overlap(spike.body, solids)) this.scene.matter.body.setPosition(spike.body, { x: center.x, y: center.y })
+    }
     flash(this.scene, center.x, center.y, 18)
     shockwaveRing(this.scene, center.x, center.y, 16, 70 + charge.progress * 40, 240, METAL_LIGHT)
     hitStopOnce(this.scene, 40)

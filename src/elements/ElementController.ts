@@ -136,6 +136,7 @@ export class ElementController {
 
   /** Absturz oder Tod: Rüstung und eine geladene Sphäre sind verloren. */
   loseMetal(): void {
+    this.metalAttack.abortBending()
     this.metalPlates.shatter(true)
     if (this.metalAttack.isCharging) {
       this.metalAttack.cancelCharge()
@@ -172,8 +173,9 @@ export class ElementController {
   /** Menüs verwerfen gehaltene Eingaben, bereits gestartete Angriffe pausieren mit der Welt. */
   cancelCharging(): void {
     this.earth.cancelCharge()
-    // Die Metall-Sphäre friert mit der Szene ein und läuft nach dem Menü weiter.
-    this.cancelChargedCasts(true)
+    // Eine bereits laufende Metall-Sphäre friert mit der Szene ein und läuft nach dem Menü weiter;
+    // ein nur angetippter Klick ohne laufende Ladung wird verworfen.
+    this.cancelChargedCasts(this.metalAttack.isCharging)
     if (!this.metalAttack.isCharging) this.player.resetCastPose()
   }
 

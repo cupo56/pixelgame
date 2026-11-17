@@ -37,6 +37,9 @@ export class MetalAttack implements Attack {
 
   anchorsRefreshed(): void { this.sphere.anchorsRefreshed() }
 
+  /** Tod oder Absturz: Bändigen endet ohne Rüstung. */
+  abortBending(): void { this.bending.abort() }
+
   execute(): boolean {
     return this.bending.begin()
   }

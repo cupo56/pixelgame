@@ -90,6 +90,12 @@ export class MetalBending {
     this.reset()
   }
 
+  /** Tod oder Absturz: nichts wird angelegt. Verschmelzendes Metall ist verloren, noch fliegende Klumpen fallen. */
+  abort(): void {
+    if (this.phase !== 'fusing') for (const { block } of this.lumps) this.metal.release(block)
+    this.reset()
+  }
+
   destroy(): void {
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.BEFORE_UPDATE, this.step, this)
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
