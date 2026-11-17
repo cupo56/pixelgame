@@ -3,9 +3,9 @@ import { ALL_CATEGORIES, COLLISION_CATEGORY, METAL_LAUNCH_MASK } from '../config
 import { REACTIONS as R } from '../config/reactions.ts'
 import { AIR_DRAG, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
-import { SPARK_TEXTURE, dust } from '../effects/particles.ts'
+import { SPARK_TEXTURE, burst, dust, smoke } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
-import { impactRing } from '../effects/impact.ts'
+import { flash, impactRing } from '../effects/impact.ts'
 import { approachAmbient, glowFraction, metalEdgeM, solidHeatingK } from './thermo.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
@@ -68,6 +68,21 @@ export class MetalMaterial {
     const block = this.spawn(x, y, massKg, temperatureC)
     block.view.setVisible(false)
     this.scene.time.delayedCall(200, () => { if (block.view.scene) block.view.setVisible(true) })
+    return block
+  }
+
+  /** Erdblock schmilzt zu Metall: gleiche Masse, Lage, Geschwindigkeit und Temperatur. */
+  fromEarth(rock: Substance): Substance | undefined {
+    const { x, y } = rock.body.position
+    const velocity = { x: rock.body.velocity.x, y: rock.body.velocity.y }
+    const temperatureC = Math.min(R.solidMaxC, rock.temperatureC)
+    const massKg = rock.massKg
+    this.system.remove(rock)
+    flash(this.scene, x, y, 22)
+    burst(this.scene, x, y, [0xffffff, 0xffe28a, 0xff8a1f], 26, 140)
+    smoke(this.scene, x, y - 4, 8, 30)
+    const block = this.spawn(x, y, massKg, temperatureC)
+    this.scene.matter.body.setVelocity(block.body, velocity)
     return block
   }
 

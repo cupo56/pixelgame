@@ -92,13 +92,25 @@ export class ReactionSystem {
     return !!substance && !!handler && handler(substance, waterKg, point)
   }
 
-  /** Explosionen heizen Stoffe im Radius; Abfall linear mit der Entfernung. */
-  heatArea(center: { x: number; y: number }, radiusM: number, heatJ: number): void {
+  /**
+   * Explosionen heizen Stoffe im Radius; Abfall linear mit der Entfernung.
+   * `direct` ist der Körper, an dem die Explosion stattfand: er bekommt die volle Wärme, ebenso jeder Stoff,
+   * dessen Körper die Flamme berührt (innerhalb `contactPx` um das Zentrum, z. B. Block neben dem Bodentreffer).
+   */
+  heatArea(center: { x: number; y: number }, radiusM: number, heatJ: number, direct?: MatterJS.BodyType, contactPx = 0): void {
+    const directSubstance = direct ? this.registry.get(direct) : undefined
     const radiusPx = metersToPixels(radiusM)
     const ctx = this.context(center)
     for (const substance of this.registry.all()) {
       const handler = this.heatHandlers.get(substance.kind)
       if (!handler) continue
+      const touching = contactPx > 0 && Phaser.Math.Distance.Between(center.x, center.y,
+        Phaser.Math.Clamp(center.x, substance.body.bounds.min.x, substance.body.bounds.max.x),
+        Phaser.Math.Clamp(center.y, substance.body.bounds.min.y, substance.body.bounds.max.y)) <= contactPx
+      if (substance === directSubstance || touching) {
+        handler(substance, heatJ, ctx)
+        continue
+      }
       const distance = Phaser.Math.Distance.Between(center.x, center.y, substance.body.position.x, substance.body.position.y)
       if (distance > radiusPx) continue
       handler(substance, heatJ * (1 - distance / radiusPx), ctx)

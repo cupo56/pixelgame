@@ -116,10 +116,12 @@ export class EarthMaterial {
     if (rock.wetnessKg >= threshold) this.system.materials.sand?.fromEarth(rock, rock.edgeM)
   }
 
+  /** Hitze lässt Erde glühen; ab der Schmelztemperatur wird der Block zu einem Metallklumpen. */
   private heat(rock: Rock, heatJ: number): void {
     if (!this.rocks.has(rock)) return
     rock.temperatureC = Math.min(R.solidMaxC, rock.temperatureC + solidHeatingK(heatJ, 1, rock.massKg))
     this.recolor(rock)
+    if (rock.temperatureC >= R.sandMeltC && !rock.inTornado) this.system.materials.metal?.fromEarth(rock)
   }
 
   /** Farbe aus Nässe (dunkler) und Hitze (dunkelrot → orange → gelb). */
@@ -191,6 +193,8 @@ export class EarthMaterial {
 
   private step(dtS: number, now: number): void {
     for (const rock of [...this.rocks]) {
+      // Glühende Blöcke verfallen nicht: so lassen sich auch mehrere kleine Feuerbälle nacheinander aufheizen.
+      if (rock.temperatureC > R.earthGlowC && Number.isFinite(rock.expiresAt)) rock.expiresAt += dtS * 1000
       if (rock.temperatureC > R.ambientC) {
         rock.temperatureC = approachAmbient(rock.temperatureC, R.earthCoolingKPerS, dtS)
         this.recolor(rock)

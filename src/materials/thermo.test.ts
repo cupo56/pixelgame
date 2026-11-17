@@ -97,6 +97,11 @@ describe('Erde, Sand, Metall', () => {
     expect(solidHeatingK(R.fireHeatMinJ, 1, 22.5)).toBeLessThan(R.sandMeltC)
   })
 
+  it('geladener Volltreffer macht einen 0,5-m-Erdblock zu Metall, ungeladener nicht', () => {
+    expect(R.ambientC + solidHeatingK(R.fireHeatMaxJ, 1, 225)).toBeGreaterThanOrEqual(R.sandMeltC)
+    expect(R.ambientC + solidHeatingK(R.fireHeatMinJ, 1, 225)).toBeLessThan(R.sandMeltC)
+  })
+
   it('Metallkante aus Sandmasse über Metalldichte', () => {
     expect(metalEdgeM(225)).toBeCloseTo(Math.cbrt(225 / 7800))
     expect(metalEdgeM(225)).toBeCloseTo(0.306, 2)

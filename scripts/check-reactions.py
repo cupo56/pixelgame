@@ -116,6 +116,25 @@ with sync_playwright() as p:
     page.screenshot(path=str(OUTPUT / 'reaktion-metall.png'))
     print('Sand schmilzt zu Metall.', flush=True)
 
+    # 5. Erde + geladenes Feuer → Metall (Block ruhig in Wurfweite).
+    page.evaluate("() => { for (const x of sys().registry.all()) sys().remove(x) }")
+    place(420, 871)
+    page.evaluate("""() => {
+        const earth = sys().materials.earth; const p = testScene.player.body.position;
+        const body = testScene.matter.add.rectangle(p.x + 100, 890, 16, 16, { label: 'rock', mass: 225, friction: 0.65 });
+        const shape = testScene.add.rectangle(p.x + 100, 890, 16, 16, 0x947653);
+        testScene.matter.add.gameObject(shape, body);
+        window.rock = earth.adopt(body, shape, 0, 0.5);
+    }""")
+    page.wait_for_timeout(900)
+    rock = page.evaluate('() => ({ x: rock.body.position.x, y: rock.body.position.y })')
+    page.keyboard.press('2')
+    click(rock['x'], rock['y'], 2200)
+    page.wait_for_timeout(900)
+    assert page.evaluate("() => window.count('earth')") == 0 and page.evaluate("() => window.count('metal')") == 1, labels()
+    page.screenshot(path=str(OUTPUT / 'reaktion-erde-metall.png'))
+    print('Feuer verwandelt Erde in Metall.', flush=True)
+
     assert errors == [], errors
     print('Alle Reaktionen geprüft.', flush=True)
     browser.close()

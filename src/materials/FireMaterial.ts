@@ -116,7 +116,7 @@ export class FireMaterial {
   }
 
   /** Explosion: Schaden, Radius und Impuls folgen dem aktuellen Wärmeinhalt. */
-  explode(substance: Substance, scorch = false): void {
+  explode(substance: Substance, scorch = false, direct?: MatterJS.BodyType): void {
     const fireball = substance as Fireball
     if (!this.fireballs.has(fireball)) return
     const charge = fireChargeFraction(fireball.heatJ)
@@ -133,7 +133,7 @@ export class FireMaterial {
       Math.round(Phaser.Math.Linear(COMBAT.fireDamage, COMBAT.chargedFireDamage, charge)))
     screenShake(this.scene, BLAST_SHAKE * (1 + charge * 0.65), 160)
     // Die Explosion heizt Stoffe im Radius (Erde glüht, Sand schmilzt, Metall erhitzt).
-    this.system.heatArea({ x, y }, BLAST_RADIUS_M + charge * 1.5, fireball.heatJ)
+    this.system.heatArea({ x, y }, BLAST_RADIUS_M + charge * 1.5, fireball.heatJ, direct, radius * 1.5)
     this.system.remove(fireball)
   }
 
@@ -253,6 +253,6 @@ export class FireMaterial {
     // wenn der Tropfen in derselben Kollision bereits verdampft und abgemeldet wurde.
     const kind = this.system.registry.kindOf(other) ?? kindOfLabel(other.label)
     if (kind === 'water' || kind === 'metal' || (kind === 'ice' && other.label === 'ice')) return
-    this.explode(fireball, other.isStatic)
+    this.explode(fireball, other.isStatic, other)
   }
 }
