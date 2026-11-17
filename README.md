@@ -103,6 +103,7 @@ Die Elemente sind echte Stoffe mit Temperatur, Masse und Wärmeinhalt. Ein zentr
 | Wasser am Boden | Ruhende Tropfen sammeln sich zu Pfützen, die nach 12 s verdunsten. |
 | Luft trifft Wasser | Windstoß und Wirbelsturm tragen Tropfen mit und kühlen sie; bei 0 °C werden sie zu Eisscherben, Pfützen zu glatten Eisflächen. Auf Eis rutscht auch die Figur. Scherben zerspringen bei hartem Aufprall und schmelzen nach einigen Sekunden. |
 | Wasser trifft Erde | Der Block saugt sich voll (dunkelt ab) und zerfällt ab einer von der Oberfläche abhängigen Wassermenge zu Sand: ein kleiner Block nach etwa 20 Tropfen. |
+| Erdblöcke | Geworfene Blöcke bleiben 30 s liegen und verschmelzen dann mit dem Boden: sie sinken von unten ein, mit Rissen und Staub. Rollende Blöcke warten, bis sie ruhen. |
 | Sand | Körner bilden Haufen, bremsen Gegner, fliegen im Wind als Sandwolke und versinken nach 12 s Ruhe. |
 | Feuer trifft Sand | Die Explosion erhitzt die Körner; geschmolzene Körner verschmelzen zu einem Metallblock (Masse bleibt erhalten, Volumen folgt der Metalldichte). Ein geladener Feuerball reicht für einen kleinen Haufen. |
 | Metall | Dauerhaft (höchstens sechs Klumpen, der älteste versinkt), glüht nach Feuer und verbrennt Gegner bei Berührung. Feuerbälle prallen daran ab, Wasser verdampft auf heißem Metall und kühlt es. |

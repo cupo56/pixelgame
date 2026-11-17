@@ -13,7 +13,12 @@ import { mix } from './MetalMaterial.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
-const ROCK_LIFETIME_MS = 10_000
+/** Erdblöcke bleiben lange liegen und verschmelzen danach mit dem Boden. */
+const ROCK_LIFETIME_MS = 30_000
+/** Dauer des Versinkens im Boden. */
+const SINK_MS = 1200
+/** Nur ruhende Blöcke versinken; ein rollender Block wartet. */
+const SINK_MAX_SPEED_MS = 0.3
 const OWNER_GRACE_MS = 220
 const IMPACT_MIN_SPEED_MS = 3
 /** Elementkombination: Windschub skaliert mit Fläche/Masse, also 1/Kantenlänge. */
@@ -199,13 +204,54 @@ export class EarthMaterial {
         rock.temperatureC = approachAmbient(rock.temperatureC, R.earthCoolingKPerS, dtS)
         this.recolor(rock)
       }
-      if (now >= rock.expiresAt) this.system.remove(rock)
-      else if (now >= rock.solidToPlayerAt && rock.body.collisionFilter.mask === LAUNCH_MASK &&
+      if (now >= rock.expiresAt) {
+        if (matterToMetersPerSecond(rock.body.speed) <= SINK_MAX_SPEED_MS) this.sinkIntoGround(rock)
+        else rock.expiresAt = now + 500
+      } else if (now >= rock.solidToPlayerAt && rock.body.collisionFilter.mask === LAUNCH_MASK &&
         !this.scene.matter.overlap(rock.body, [this.playerBody])) {
         // Kurzer Schutz beim Abschuss; danach bleibt der Block ein festes Hindernis.
         rock.body.collisionFilter.mask = ALL_CATEGORIES
       }
     }
+  }
+
+  /**
+   * Der Block verschmilzt mit dem Boden: er richtet sich auf, sinkt von unten ein (nur der Teil über
+   * dem Boden bleibt sichtbar), dabei Staub und Risse. Als Stoff ist er sofort weg.
+   */
+  private sinkIntoGround(rock: Rock): void {
+    this.rocks.delete(rock)
+    this.system.registry.unregister(rock.body)
+    const { body, shape, overlay } = rock
+    const groundY = body.bounds.max.y
+    const size = body.bounds.max.x - body.bounds.min.x
+    const edge = Math.max(4, rock.edgeM * 32)
+    const x = body.position.x
+    overlay.destroy()
+    // Körper sofort aus der Physik nehmen (nach dem Schritt), die Grafik übernimmt die Animation.
+    this.scene.time.delayedCall(0, () => this.scene.matter.world?.remove(body))
+    const view = this.scene.add.rectangle(x, groundY - edge / 2, edge, edge, shape.fillColor).setDepth(5)
+      .setStrokeStyle(1, 0x4a3f33).setAngle(shape.angle)
+    shape.destroy()
+    crackDecal(this.scene, x, groundY, 6 + size * 0.5)
+    const state = { t: 0 }
+    let nextDust = 0
+    this.scene.tweens.add({
+      targets: state, t: 1, duration: SINK_MS, ease: 'Sine.easeIn',
+      onUpdate: () => {
+        const height = Math.max(0.1, edge * (1 - state.t))
+        // Erst aufrichten, dann nur die Scheibe über dem Boden zeigen.
+        view.setAngle(view.angle * 0.85).setSize(edge, height).setPosition(x, groundY - height / 2)
+        if (state.t >= nextDust) {
+          dust(this.scene, x, groundY - 1, 3, 35)
+          nextDust += 0.2
+        }
+      },
+      onComplete: () => {
+        dust(this.scene, x, groundY - 1, 6, 30)
+        view.destroy()
+      },
+    })
   }
 
   private onCollision(event: Phaser.Physics.Matter.Events.CollisionStartEvent): void {
