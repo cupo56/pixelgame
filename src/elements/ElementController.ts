@@ -17,6 +17,8 @@ import { IceMaterial } from '../materials/IceMaterial.ts'
 import { SandMaterial } from '../materials/SandMaterial.ts'
 import { MetalMaterial } from '../materials/MetalMaterial.ts'
 import { ArmorPlates } from '../metal/ArmorPlates.ts'
+import { MetalBending } from '../metal/MetalBending.ts'
+import { MetalAttack } from '../attacks/MetalAttack.ts'
 
 const AIM_LINE_LENGTH_PX = 28
 const AIM_LINE_ALPHA = 0.6
@@ -25,6 +27,9 @@ const RETICLE_RADIUS_PX = 3
 const HOLD_CHARGE_DELAY_MS = 180
 /** Tasten 1-5, gleiche Reihenfolge wie ELEMENTS. */
 const ELEMENT_KEY_NAMES = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'] as const
+
+/** Elemente mit gehaltenem Angriff (alle außer Erde, das eigene Hebelogik hat). */
+type ChargedElement = 'fire' | 'water' | 'air' | 'metal'
 
 /** Elementwahl (Mausrad / 1-5), Zielen mit der Maus, Angriff mit Linksklick. */
 export class ElementController {
@@ -45,12 +50,13 @@ export class ElementController {
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
   private readonly air: AirGustAttack
+  private readonly metalAttack: MetalAttack
   private readonly attacks: Partial<Record<ElementId, Attack>>
   private readonly nextReadyAt = new Map<ElementId, number>()
   private readonly hud = HudBar.get()
   private readonly aimGraphics: Phaser.GameObjects.Graphics
   private selected: ElementInfo = ELEMENTS[0]
-  private heldCast?: { element: 'fire' | 'water' | 'air'; pressedAt: number }
+  private heldCast?: { element: ChargedElement; pressedAt: number }
 
   constructor(scene: Phaser.Scene, player: Player) {
     this.scene = scene
@@ -71,11 +77,13 @@ export class ElementController {
     this.fire = new FireballAttack(scene, this.fireMaterial, () => player.getCastOrigin())
     this.water = new WaterJetAttack(scene, this.waterMaterial, () => player.getWaterPose(), this.system)
     this.air = new AirGustAttack(scene, player.body, this.system, () => player.getAirPose())
+    this.metalAttack = new MetalAttack(new MetalBending(scene, this.metal, player, this.metalPlates))
     this.attacks = {
       earth: this.earth,
       fire: this.fire,
       water: this.water,
       air: this.air,
+      metal: this.metalAttack,
     }
 
     const keyboard = scene.input.keyboard
@@ -143,6 +151,7 @@ export class ElementController {
     this.cancelChargedCasts()
     this.water.cancel()
     this.air.cancel()
+    this.metalAttack.cancel()
     this.player.resetCastPose()
   }
 
@@ -171,14 +180,12 @@ export class ElementController {
     if (!attack.isCharging && attack.beginCharge()) {
       if (held.element === 'fire') this.player.setFireCharge(0)
       else if (held.element === 'water') this.player.setWaterCharge(0)
-      else this.player.setAirCharge(0)
+      else if (held.element === 'air') this.player.setAirCharge(0)
     }
   }
 
   private pressAttack(pointer: Phaser.Input.Pointer): void {
     if (pointer.button !== 0) return
-    // Metall bekommt seine Eingabe mit dem Bändigen (Task 5) und der Sphäre (Task 6).
-    if (this.selected.id === 'metal') return
     if (this.selected.id !== 'earth') {
       this.heldCast ??= { element: this.selected.id, pressedAt: this.scene.time.now }
       return
@@ -211,7 +218,8 @@ export class ElementController {
       const direction = target.clone().subtract(origin)
       if (charged && attack.release(origin, direction)) {
         if (this.selected.id === 'air') this.player.cast('air-charged')
-        const cooldown = this.selected.id === 'water' ? this.water.chargedCooldownMs : this.selected.id === 'air' ? this.air.chargedCooldownMs : this.fire.cooldownMs
+        const cooldown = this.selected.id === 'water' ? this.water.chargedCooldownMs : this.selected.id === 'air' ? this.air.chargedCooldownMs
+          : this.selected.id === 'metal' ? this.metalAttack.chargedCooldownMs : this.fire.cooldownMs
         this.nextReadyAt.set(this.selected.id, this.scene.time.now + cooldown * progression.cooldownMultiplier(this.selected.id))
       } else if (!charged && direction.lengthSq() > 0) {
         this.tryAttack(this.scene.time.now)
@@ -229,8 +237,8 @@ export class ElementController {
     }
   }
 
-  private chargedAttack(element: 'fire' | 'water' | 'air'): FireballAttack | WaterJetAttack | AirGustAttack {
-    return element === 'fire' ? this.fire : element === 'water' ? this.water : this.air
+  private chargedAttack(element: ChargedElement): FireballAttack | WaterJetAttack | AirGustAttack | MetalAttack {
+    return element === 'fire' ? this.fire : element === 'water' ? this.water : element === 'air' ? this.air : this.metalAttack
   }
 
   private cycleElement(
@@ -247,6 +255,7 @@ export class ElementController {
 
   private select(element: ElementInfo): void {
     if (element.id !== this.selected.id) {
+      this.metalAttack.cancel()
       this.earth.cancelCharge()
       this.cancelChargedCasts()
       this.player.resetCastPose()
@@ -259,6 +268,7 @@ export class ElementController {
     if (this.selected.id === 'fire' && (this.fire.isCharging || this.heldCast?.element === 'fire')) return
     if (this.selected.id === 'water' && (this.water.isCharging || this.heldCast?.element === 'water')) return
     if (this.selected.id === 'air' && (this.air.isCharging || this.heldCast?.element === 'air')) return
+    if (this.selected.id === 'metal' && (this.metalAttack.isCharging || this.heldCast?.element === 'metal')) return
     const attack = this.attacks[this.selected.id]
     if (!attack || timeMs < (this.nextReadyAt.get(this.selected.id) ?? 0)) {
       return

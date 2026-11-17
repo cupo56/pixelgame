@@ -29,6 +29,8 @@ export interface MetalBlock extends Substance {
   solidToPlayerAt: number
   readonly lastBurnAt: Map<MatterJS.BodyType, number>
   sinking: boolean
+  /** Vom Metallbändigen erfasst: fliegt, zählt nicht gegen den Deckel, kollidiert nur mit Gegnern. */
+  claimed: boolean
 }
 
 /** Metall: schwere, dauerhafte Blöcke aus verschmolzenem Sand; glühen, brennen, lassen Feuer abprallen. */
@@ -86,6 +88,35 @@ export class MetalMaterial {
     return block
   }
 
+  /** Ruhende oder rollende Klumpen in Reichweite, die noch niemand bändigt. */
+  inRange(x: number, y: number, rangePx: number): MetalBlock[] {
+    return [...this.blocks].filter((b) => !b.sinking && !b.claimed &&
+      Phaser.Math.Distance.Between(x, y, b.body.position.x, b.body.position.y) <= rangePx)
+  }
+
+  /** Bändigen erfasst den Klumpen: schwerelos, ohne Geländekontakt, nur Gegner werden gestreift. */
+  claim(lump: MetalBlock): void {
+    if (!this.blocks.has(lump)) return
+    lump.claimed = true
+    lump.body.ignoreGravity = true
+    lump.body.collisionFilter.mask = COLLISION_CATEGORY.enemy
+    lump.solidToPlayerAt = Infinity
+  }
+
+  /** Abbruch: der Klumpen fällt als normaler Klumpen zu Boden. */
+  release(lump: MetalBlock): void {
+    if (!this.blocks.has(lump)) return
+    lump.claimed = false
+    lump.body.ignoreGravity = false
+    lump.body.collisionFilter.mask = METAL_LAUNCH_MASK
+    lump.solidToPlayerAt = this.scene.time.now + OWNER_GRACE_MS
+  }
+
+  /** Beim Verschmelzen geht der Klumpen in die Rüstung über (ohne Versink-Effekt). */
+  consume(lump: MetalBlock): void {
+    this.system.remove(lump)
+  }
+
   all(): MetalBlock[] {
     return [...this.blocks]
   }
@@ -98,8 +129,8 @@ export class MetalMaterial {
   }
 
   private spawn(x: number, y: number, massKg: number, temperatureC: number): MetalBlock {
-    while (this.blocks.size >= R.metalMax) {
-      const oldest = [...this.blocks].filter((b) => !b.sinking).sort((a, b) => a.createdAt - b.createdAt)[0]
+    while ([...this.blocks].filter((b) => !b.claimed).length >= R.metalMax) {
+      const oldest = [...this.blocks].filter((b) => !b.sinking && !b.claimed).sort((a, b) => a.createdAt - b.createdAt)[0]
       if (!oldest) break
       this.sink(oldest)
     }
@@ -125,7 +156,7 @@ export class MetalMaterial {
     }).setDepth(15)
     const now = this.scene.time.now
     const block: MetalBlock = {
-      kind: 'metal', body, view, glow, shimmer, edgePx, solidToPlayerAt: now + OWNER_GRACE_MS, lastBurnAt: new Map(), sinking: false,
+      kind: 'metal', body, view, glow, shimmer, edgePx, solidToPlayerAt: now + OWNER_GRACE_MS, lastBurnAt: new Map(), sinking: false, claimed: false,
       temperatureC, massKg, wetnessKg: 0, heatJ: 0, restingMs: 0, createdAt: now,
       remove: () => {
         this.blocks.delete(block)
