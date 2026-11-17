@@ -6,7 +6,7 @@ import { applyBlast } from '../attacks/explosion.ts'
 import { SPARK_TEXTURE, burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { steamCloud } from './SteamEffect.ts'
-import { fireChargeFraction, quenchFire } from './thermo.ts'
+import { fireChargeFraction, quenchFire, windFeedHeat } from './thermo.ts'
 import { kindOfLabel, type Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -27,6 +27,8 @@ export interface Fireball extends Substance {
   readonly emitter: Phaser.GameObjects.Particles.ParticleEmitter
   readonly core: Phaser.GameObjects.Graphics
   readonly expiry: Phaser.Time.TimerEvent
+  /** Aktueller Körperradius; wächst mit Q, wenn Wind das Feuer nährt. */
+  bodyRadiusPx: number
 }
 
 /** Feuerbälle: Flug ohne Gravitation (Magie), Explosion beim ersten festen Treffer, Erlöschen im Wasser. */
@@ -40,6 +42,7 @@ export class FireMaterial {
     this.system = system
     system.attach('fire', this)
     system.setWhipHandler('fire', (s, waterKg) => this.douse(s as Fireball, waterKg))
+    system.setWindHandler('fire', (s, direction, strength) => this.feed(s as Fireball, direction, strength))
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
@@ -49,7 +52,8 @@ export class FireMaterial {
     const charge = fireChargeFraction(heatJ)
     const spawnX = (origin.x ?? 0) + direction.x * metersToPixels(SPAWN_DISTANCE_M)
     const spawnY = (origin.y ?? 0) + direction.y * metersToPixels(SPAWN_DISTANCE_M)
-    const body = this.scene.matter.add.circle(spawnX, spawnY, this.radiusPx(heatJ), {
+    const bodyRadiusPx = this.radiusPx(heatJ)
+    const body = this.scene.matter.add.circle(spawnX, spawnY, bodyRadiusPx, {
       label: 'fireball',
       mass: BALL_MASS_KG,
       isSensor: true,
@@ -71,7 +75,7 @@ export class FireMaterial {
     }).setDepth(15)
     const core = this.scene.add.graphics().setDepth(16).setBlendMode(Phaser.BlendModes.ADD)
     const fireball: Fireball = {
-      kind: 'fire', body, emitter, core,
+      kind: 'fire', body, emitter, core, bodyRadiusPx,
       expiry: this.scene.time.delayedCall(MAX_FLIGHT_MS, () => this.explode(fireball)),
       temperatureC: 900, massKg: BALL_MASS_KG, wetnessKg: 0, heatJ, restingMs: 0, createdAt: this.scene.time.now,
       remove: () => {
@@ -138,6 +142,21 @@ export class FireMaterial {
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     for (const fireball of [...this.fireballs]) this.system.remove(fireball)
+  }
+
+  /** Wind nährt das Feuer: Schub in Windrichtung, mehr Q, größerer Körper. */
+  private feed(fireball: Fireball, direction: Phaser.Math.Vector2, strength: number): void {
+    if (!this.fireballs.has(fireball)) return
+    const body = fireball.body
+    const deltaV = metersPerSecondToMatter(R.gustCarrySpeedMs * strength)
+    this.scene.matter.body.setVelocity(body, { x: body.velocity.x + direction.x * deltaV, y: body.velocity.y + direction.y * deltaV })
+    fireball.heatJ = windFeedHeat(fireball.heatJ, strength)
+    const radius = this.radiusPx(fireball.heatJ)
+    if (radius > fireball.bodyRadiusPx * 1.02) {
+      this.scene.matter.body.scale(body, radius / fireball.bodyRadiusPx, radius / fireball.bodyRadiusPx)
+      fireball.bodyRadiusPx = radius
+    }
+    burst(this.scene, body.position.x, body.position.y, FIRE_COLORS, Math.round(6 + strength * 10), 60)
   }
 
   /** Peitsche oder Pfütze: eine Wassermasse trifft auf einmal. */

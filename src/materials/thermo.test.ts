@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { REACTIONS as R } from '../config/reactions.ts'
 import {
   approachAmbient, coolWater, fireChargeFraction, fireHeatForCharge, glowFraction, grainPlan, heatWater,
-  mergeTarget, metalEdgeM, puddleWidthPx, quenchFire, sandWettingThresholdKg, solidHeatingK,
+  mergeTarget, metalEdgeM, puddleWidthPx, quenchFire, sandWettingThresholdKg, solidHeatingK, windFeedHeat,
 } from './thermo.ts'
 
 describe('Feuer und Wasser', () => {
@@ -59,6 +59,13 @@ describe('Feuer und Wasser', () => {
     expect(quenchFire(R.fireHeatMaxJ, R.chargedWhipWaterKg).extinguished).toBe(true)
     expect(quenchFire(fireHeatForCharge(0.5), R.whipWaterKg).extinguished).toBe(true)
     expect(quenchFire(R.fireHeatMaxJ, R.whipWaterKg).extinguished).toBe(false)
+  })
+
+  it('Wind nährt Feuer um 15 % je vollem Kontakt, höchstens bis zum 1,6-Fachen des Maximums', () => {
+    expect(windFeedHeat(1e6, 1)).toBeCloseTo(1.15e6)
+    expect(windFeedHeat(1e6, 0.5)).toBeCloseTo(1.075e6)
+    expect(windFeedHeat(R.fireHeatMaxJ * 1.55, 1)).toBeCloseTo(R.fireHeatMaxJ * R.fireWindHeatFactorMax)
+    expect(windFeedHeat(R.fireHeatMaxJ * 2, 0)).toBeCloseTo(R.fireHeatMaxJ * R.fireWindHeatFactorMax)
   })
 
   it('ein voller Windstoß aus der Nähe friert einen Tropfen', () => {

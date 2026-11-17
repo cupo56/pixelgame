@@ -79,3 +79,7 @@ export const mergeTarget = <T extends { x: number; y: number }>(
   }
   return best
 }
+
+/** Wind nährt Feuer: relativer Zuwachs pro Kontakt, gedeckelt auf das 1,6-Fache des Maximums. */
+export const windFeedHeat = (heatJ: number, strength: number): number =>
+  Math.min(heatJ * (1 + R.fireWindHeatGain * clamp01(strength)), R.fireHeatMaxJ * R.fireWindHeatFactorMax)
