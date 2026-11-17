@@ -5,6 +5,7 @@ import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
+import { impactRing } from '../effects/impact.ts'
 import { steamCloud } from './SteamEffect.ts'
 import { coolWater } from './thermo.ts'
 import { kindOfLabel, type Substance } from './Substance.ts'
@@ -18,11 +19,15 @@ const SPLASH_CHANCE = 0.35
 /** Unterhalb dieser Geschwindigkeit gilt ein Tropfen am Boden als ruhend. */
 const RESTING_SPEED_MS = 0.2
 const WATER_COLOR = 0x3fa7ff
+const WATER_DEEP = 0x1b6fc2
+const WATER_SHINE = 0xdffbff
+/** Benachbarte Tropfen werden bis zu dieser Entfernung zu einem Strahl verbunden. */
+const LINK_DISTANCE_PX = 14
 export const WATER_COLORS = [0xbfe6ff, 0x3fa7ff, 0x1b6fc2]
 
 export interface Droplet extends Substance {
   readonly kind: 'water'
-  readonly shape: Phaser.GameObjects.Arc
+  readonly radiusPx: number
   readonly expiry: Phaser.Time.TimerEvent
   /** Zeitpunkt des letzten Geländekontakts (ms), für die Ruheerkennung. */
   groundedAt: number
@@ -36,12 +41,16 @@ export class WaterMaterial {
   private readonly system: ReactionSystem
   private readonly puddles: Puddle
   private readonly droplets = new Set<Droplet>()
+  /** Eine gemeinsame Zeichenfläche für alle Tropfen und ihre Verbindungen. */
+  private readonly layer: Phaser.GameObjects.Graphics
   private readonly offStep: () => void
 
   constructor(scene: Phaser.Scene, system: ReactionSystem, puddles: Puddle) {
     this.scene = scene
     this.system = system
     this.puddles = puddles
+    this.layer = scene.add.graphics().setDepth(6)
+    scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
     system.attach('water', this)
     this.offStep = system.onStep(this.step.bind(this))
     system.setWindHandler('water', (s, direction, strength) => this.wind(s, direction, strength))
@@ -64,13 +73,11 @@ export class WaterMaterial {
     })
     // Ohne Rotation rutscht der Tropfen und wird von der Reibung gestoppt, statt endlos zu rollen.
     this.scene.matter.body.setInertia(body, Infinity)
-    const shape = this.scene.add.circle(x, y, radiusPx, WATER_COLOR).setDepth(6)
-    this.scene.matter.add.gameObject(shape, body)
     const speed = metersPerSecondToMatter(speedMs)
     this.scene.matter.body.setVelocity(body, { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed })
 
     const droplet: Droplet = {
-      kind: 'water', body, shape, groundedAt: -Infinity, inVortex: false,
+      kind: 'water', body, radiusPx, groundedAt: -Infinity, inVortex: false,
       expiry: this.scene.time.delayedCall(LIFETIME_MS, () => this.system.remove(droplet)),
       temperatureC: R.waterStartC, massKg: R.dropletMassKg, wetnessKg: 0, heatJ: 0, restingMs: 0,
       createdAt: this.scene.time.now,
@@ -78,10 +85,7 @@ export class WaterMaterial {
         this.droplets.delete(droplet)
         droplet.expiry.remove()
         // Entfernen erst nach dem Physikschritt, damit der Impuls noch übertragen wird.
-        this.scene.time.delayedCall(0, () => {
-          this.scene.matter.world?.remove(body)
-          shape.destroy()
-        })
+        this.scene.time.delayedCall(0, () => this.scene.matter.world?.remove(body))
       },
     }
     this.droplets.add(droplet)
@@ -105,6 +109,8 @@ export class WaterMaterial {
 
   destroy(): void {
     this.offStep()
+    this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
+    this.layer.destroy()
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onContact, this)
     for (const droplet of [...this.droplets]) this.system.remove(droplet)
@@ -143,6 +149,48 @@ export class WaterMaterial {
   private release(s: Substance): void {
     const droplet = s as Droplet
     if (this.droplets.has(droplet)) droplet.inVortex = false
+  }
+
+  /** Tropfen als in Flugrichtung gestreckte Ellipsen mit Glanzpunkt; nahe Nachbarn werden zum Strahl verbunden. */
+  private draw(): void {
+    const g = this.layer.clear()
+    const list = [...this.droplets]
+    g.lineStyle(2, WATER_COLOR, 0.8)
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i].body.position
+      let best: MatterJS.Vector | undefined
+      let bestDistance = LINK_DISTANCE_PX
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j].body.position
+        const distance = Math.hypot(b.x - a.x, b.y - a.y)
+        if (distance < bestDistance) { best = b; bestDistance = distance }
+      }
+      if (best) g.lineBetween(Math.round(a.x), Math.round(a.y), Math.round(best.x), Math.round(best.y))
+    }
+    for (const droplet of list) {
+      const { x, y } = droplet.body.position
+      const { x: vx, y: vy } = droplet.body.velocity
+      const speedMs = matterToMetersPerSecond(Math.hypot(vx, vy))
+      const r = droplet.radiusPx
+      const length = r * 2 * (1 + Math.min(2.5, speedMs / 6))
+      const angle = Math.atan2(vy, vx)
+      g.fillStyle(WATER_DEEP, 0.9)
+      this.ellipse(g, x, y, length + 1, r * 2 + 1, angle)
+      g.fillStyle(WATER_COLOR, 1)
+      this.ellipse(g, x, y, length, r * 2, angle)
+      g.fillStyle(WATER_SHINE, 0.95).fillRect(Math.round(x - r * 0.6), Math.round(y - r * 0.7), 1, 1)
+    }
+  }
+
+  private ellipse(g: Phaser.GameObjects.Graphics, x: number, y: number, width: number, height: number, angle: number): void {
+    const points: Phaser.Math.Vector2[] = []
+    const cos = Math.cos(angle), sin = Math.sin(angle)
+    for (let i = 0; i < 8; i++) {
+      const t = (i / 8) * Math.PI * 2
+      const px = Math.cos(t) * width / 2, py = Math.sin(t) * height / 2
+      points.push(new Phaser.Math.Vector2(Math.round(x + px * cos - py * sin), Math.round(y + px * sin + py * cos)))
+    }
+    g.fillPoints(points, true)
   }
 
   /** Ruhende Tropfen am Boden sammeln sich nach puddleRestMs zur Pfütze; gefangene Tropfen kühlen aus. */
@@ -198,7 +246,7 @@ export class WaterMaterial {
       (droplet as Droplet).groundedAt = now
       return
     }
-    damageEnemy(other, COMBAT.waterDamage)
+    if (damageEnemy(other, COMBAT.waterDamage)) impactRing(this.scene, candidate.position.x, candidate.position.y, WATER_COLOR)
     this.system.remove(droplet)
   }
 }
