@@ -7,7 +7,7 @@ import { WaterJetAttack } from '../attacks/WaterJetAttack.ts'
 import { ELEMENTS, type ElementId, type ElementInfo } from '../config/elements.ts'
 import type { Player } from '../entities/Player.ts'
 import { ReactionSystem } from '../materials/ReactionSystem.ts'
-import { ElementBar } from '../ui/ElementBar.ts'
+import { HudBar } from '../ui/HudBar.ts'
 import { EarthMaterial } from '../materials/EarthMaterial.ts'
 import { FireMaterial } from '../materials/FireMaterial.ts'
 import { WaterMaterial } from '../materials/WaterMaterial.ts'
@@ -43,7 +43,7 @@ export class ElementController {
   private readonly air: AirGustAttack
   private readonly attacks: Partial<Record<ElementId, Attack>>
   private readonly nextReadyAt = new Map<ElementId, number>()
-  private readonly elementBar = ElementBar.get()
+  private readonly hud = HudBar.get()
   private readonly aimGraphics: Phaser.GameObjects.Graphics
   private selected: ElementInfo = ELEMENTS[0]
   private heldCast?: { element: 'fire' | 'water' | 'air'; pressedAt: number }
@@ -265,7 +265,7 @@ export class ElementController {
 
 
   private refreshHud(): void {
-    this.elementBar.select(this.selected.id)
+    this.hud.selectElement(this.selected.id)
   }
 
   private destroy(): void {

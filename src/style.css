@@ -14,59 +14,59 @@ body {
 }
 
 #app {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   width: 100vw;
+  overflow: hidden;
 }
 
 canvas {
   image-rendering: pixelated;
 }
 
-/* Statusleiste und Elementleiste: echtes HTML, dadurch scharf in jeder Fenstergröße. */
-#statusbar,
-#elementbar {
+/* Spielleiste unten: echtes HTML, dadurch scharf in jeder Fenstergröße. */
+#hudbar {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  box-sizing: border-box;
+  gap: 16px;
+  height: 46px;
   padding: 0 20px;
+  box-sizing: border-box;
   background: #0c1c26;
+  border-top: 1px solid #2a4a52;
+  font-size: 13px;
   white-space: nowrap;
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
-#statusbar {
-  justify-content: space-between;
-  height: 42px;
-  border-bottom: 1px solid #2a4a52;
-  font-size: 13px;
-}
-
-#statusbar > div {
+.hud-health {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
-.sb-label {
+.hud-label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: #9bb7af;
 }
 
-.sb-health-bar {
+.hud-health-bar {
   display: inline-block;
-  width: min(220px, 30vw);
+  width: min(180px, 16vw);
   height: 8px;
   background: #263d46;
   border-radius: 2px;
   overflow: hidden;
 }
 
-.sb-health-fill {
+.hud-health-fill {
   display: block;
   height: 100%;
   width: 100%;
@@ -74,31 +74,21 @@ canvas {
   transition: width 160ms ease-out, background-color 160ms;
 }
 
-.sb-health-fill.is-low {
+.hud-health-fill.is-low {
   background: #e78b86;
 }
 
-.sb-health-value {
-  min-width: 7ch;
+.hud-health-value {
   font-variant-numeric: tabular-nums;
 }
 
-.sb-region-name {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #f0eacb;
-}
-
-#elementbar {
-  justify-content: center;
-  gap: clamp(12px, 4vw, 48px);
-  height: 44px;
-  border-top: 1px solid #2a4a52;
+.hud-elements {
+  display: flex;
+  gap: clamp(6px, 2vw, 28px);
   font-size: 14px;
 }
 
-.eb-item {
+.hud-element {
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -109,17 +99,51 @@ canvas {
   transition: opacity 120ms, background-color 120ms;
 }
 
-.eb-item.is-active {
+.hud-element.is-active {
   opacity: 1;
   background: color-mix(in srgb, var(--element-color) 16%, transparent);
   box-shadow: inset 0 -2px 0 var(--element-color);
 }
 
-.eb-key {
+.hud-element.is-active .hud-element-label {
+  font-weight: 700;
+}
+
+.hud-element-key {
   font-size: 11px;
   opacity: 0.8;
 }
 
-.eb-item.is-active .eb-label {
+.hud-region {
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-region-name {
+  font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f0eacb;
+}
+
+@media (max-width: 760px) {
+  #hudbar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+
+  .hud-label,
+  .hud-element-key {
+    display: none;
+  }
+
+  .hud-element {
+    padding: 4px 6px;
+  }
+
+  .hud-health-bar {
+    width: 60px;
+  }
 }

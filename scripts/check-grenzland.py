@@ -23,7 +23,7 @@ with sync_playwright() as p:
             x: testScene.player.body.position.x,
             y: testScene.player.body.position.y,
             found: [...testScene.found],
-            region: testScene.statusBar.region,
+            region: testScene.hud.region,
             map: testScene.map.visible,
             element: testScene.elements.selectedElement
         })""")

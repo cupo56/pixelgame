@@ -4,7 +4,7 @@ import { Player } from '../entities/Player.ts'
 import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
 import { COMBAT, TEST_ENEMIES } from '../config/combat.ts'
 import { CAMP, Grenzland, LANDMARKS, LIFT, WORLD } from '../world/Grenzland.ts'
-import { StatusBar } from '../ui/StatusBar.ts'
+import { HudBar } from '../ui/HudBar.ts'
 
 const SAVE_KEY = 'elements.grenzland.v1'
 
@@ -13,7 +13,8 @@ export class GameScene extends Phaser.Scene {
   private elements!: ElementController
   private enemies: FlyingPlushEnemy[] = []
   /** Scharfe HTML-Statusleiste über dem Canvas (Leben, Ort, Gegner, Grenzsteine). */
-  readonly statusBar = StatusBar.get()
+  /** Scharfe HTML-Leiste unten (Leben, Elemente, Ort). */
+  readonly hud = HudBar.get()
   private map!: Phaser.GameObjects.Container
   private mapPlayer!: Phaser.GameObjects.Arc
   private interact!: Phaser.Input.Keyboard.Key
@@ -67,7 +68,7 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) enemy.render()
     this.refreshHealth()
     const { x, y } = this.player.body.position
-    this.statusBar.setRegion(y > 1080 ? 'Die Kristallgrotte' : y < 620 ? 'Die Himmelsinseln' : 'Das Grenzland')
+    this.hud.setRegion(y > 1080 ? 'Die Kristallgrotte' : y < 620 ? 'Die Himmelsinseln' : 'Das Grenzland')
     if (Phaser.Input.Keyboard.JustDown(this.mapKey)) this.map.setVisible(!this.map.visible)
     this.mapPlayer.setPosition(190 + x / WORLD.width * 580, 120 + y / WORLD.height * 240)
     if (Phaser.Input.Keyboard.JustDown(this.recall) || y > WORLD.height - 70) {
@@ -106,7 +107,7 @@ export class GameScene extends Phaser.Scene {
 
   private refreshHealth(): void {
     const { current, max } = this.player.health
-    this.statusBar.setHealth(current, max)
+    this.hud.setHealth(current, max)
   }
 
   private travel(x: number, y: number): void {
