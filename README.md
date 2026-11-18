@@ -131,9 +131,19 @@ Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt*
 
 **Windmarkierung:** Bei gewähltem Luftelement zeigen Erdblöcke im Windstoßkegel vier Eckklammern und einen Pfeil, dessen Länge der erwarteten Austrittsgeschwindigkeit entspricht. Die Markierung zeigt nur, sie lenkt nichts.
 
+## Steinmauer und Gegner-Geschosse
+
+Mit **Erde** gewählt bändigt die **rechte Maustaste** eine Steinmauer (1,2 m breit, 2,5 m hoch, etwa 8 t). **Halten** lässt sie 2 bis 6 m vor dir Lage für Lage aus dem Boden steigen, du stehst dabei im tiefen Stand und hebst die Hände mit. Loslassen beendet das Wachsen (mindestens 1 m Höhe). Ein **Rechtsklick** auf die stehende Mauer tritt sie mit dem Fuß zur Maus: Sie gleitet mit 14 m/s los (Neigung höchstens ±35°), macht Wucht-Schaden und bricht bei hartem Aufprall. Nur eine Mauer gleichzeitig, danach 4 s Abklingzeit.
+
+Die Mauer hat 60 Haltbarkeit, jedes Gegner-Geschoss zieht seinen Schaden ab, Risse zeigen den Zustand. Ohne Treffer versinkt sie nach 15 s. Sie ist ein normaler Erd-Stoff: Ein Luftstoß schleudert sie, Feuer macht sie zu Metall, Wasser lässt sie zu Sand zerfallen.
+
+Gegner schießen jetzt alle 3 bis 4,5 s einen Plüsch-Ball auf dich, wenn du näher als 14 m bist (9 m/s, 6 Schaden). Eingefrorene Gegner schießen nicht. Stellwerte: `src/config/wall.ts` und `src/config/combat.ts`; Spec unter `docs/superpowers/specs/2026-11-18-stone-wall-design.md`.
+
 ## Browserprüfung
 
 `scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab. Die erste Szene („Wasser löscht Feuer“) ist zeitabhängig und besteht nur gelegentlich; die übrigen Szenen sind stabil.
+
+`scripts/check-wall.py` prüft die Steinmauer (Aufstieg, Schutz mit Haltbarkeit, Zerfall, Tritt mit Schaden, Versinken, Luftstoß) und die Gegner-Schüsse; Screenshots der Figurenhaltungen liegen als `artifacts/wand-*.png` bereit.
 
 `scripts/check-combos.py` prüft die Element-Kombos: Wucht-Schaden, Meteor (genau eine Explosion je Erhitzung), die Kette Nass → Windstoß → Eisfessel samt Frostschutz und Trocknen durch Feuer, die Salve des Wirbels, den Feuerwirbel (Ball explodiert nicht, Wirbelende löscht ihn), das Körperbudget und die Windmarkierung. Jede Szenengruppe startet ein frisches Spiel; Screenshots landen in `artifacts`. Der Dev-Server muss auf `127.0.0.1` laufen (`npx vite --host 127.0.0.1 --port 5174`).
 

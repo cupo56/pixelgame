@@ -288,7 +288,8 @@ export class FireMaterial {
 
   private checkHit(candidate: MatterJS.BodyType, other: MatterJS.BodyType): void {
     const fireball = this.system.registry.get(candidate)
-    if (fireball?.kind !== 'fire' || other.isSensor || other.label === 'player') return
+    // Gegner-Geschosse sind keine Ziele: Feuerbälle fliegen durch sie hindurch.
+    if (fireball?.kind !== 'fire' || other.isSensor || other.label === 'player' || other.label === 'enemy-shot') return
     // Stoffpaare mit eigener Reaktion (Wasser) regelt die Reaktionstabelle. Das Label greift auch,
     // wenn der Tropfen in derselben Kollision bereits verdampft und abgemeldet wurde.
     const kind = this.system.registry.kindOf(other) ?? kindOfLabel(other.label)

@@ -117,6 +117,8 @@ export class Player {
   cast(element: string): void { this.view.cast(element) }
 
   resetCastPose(): void { this.view.resetCastPose() }
+  setWallRaise(progress: number | null): void { this.view.setWallRaise(progress) }
+  kickWall(facing: number): void { this.view.kick(facing) }
   setEarthCharge(progress: number | null): void { this.view.setEarthCharge(progress) }
   setFireCharge(progress: number | null): void { this.view.setFireCharge(progress) }
   setWaterCharge(progress: number | null): void { this.view.setWaterCharge(progress) }

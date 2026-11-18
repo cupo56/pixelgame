@@ -269,7 +269,8 @@ export class EarthMaterial {
 
   private impact(body: MatterJS.BodyType, other: MatterJS.BodyType): void {
     const rock = this.system.registry.get(body)
-    if (rock?.kind !== 'earth' || other.isSensor) return
+    // Gegner-Geschosse sind zu leicht für Wucht, Glutkontakt oder Meteor: nur die Mauer fängt sie ab.
+    if (rock?.kind !== 'earth' || other.isSensor || other.label === 'enemy-shot') return
     const earth = rock as Rock
     // Glühende Erde verbrennt Gegner bei Berührung.
     if (earth.temperatureC >= R.earthGlowC && isEnemy(other) &&

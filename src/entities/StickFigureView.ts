@@ -24,6 +24,8 @@ const FRONT_COLOR = 0xe5ecdf
 const BACK_COLOR = 0x93aaa4
 const MOVING_SPEED_MS = 0.15
 
+const KICK_SECONDS = 0.5
+
 /** Simple stick figure with articulated limbs; hand pose is shared with attacks. */
 export class StickFigureView {
   private readonly graphics: Phaser.GameObjects.Graphics
@@ -54,6 +56,12 @@ export class StickFigureView {
   private airAmount = 0
   private airBlend = 0
   private airPhase = 0
+  /** Steinmauer: Pferdestand beim Heben und Fußtritt beim Werfen (eigene Bändigerhaltungen). */
+  private wallRaise: number | null = null
+  private wallAmount = 0
+  private wallBlend = 0
+  private kickTime = -1
+  private kickFacing = 1
   private readonly airCenter = new Phaser.Math.Vector2()
   private attackElement: ElementId | null = null
   private attackTime = 0
@@ -72,7 +80,8 @@ export class StickFigureView {
     this.target.copy(target)
     this.color = color
     this.prone = prone
-    if (Math.abs(target.x - x) > 5) this.aimFacing = Math.sign(target.x - x)
+    if (this.kickTime >= 0) this.aimFacing = this.kickFacing
+    else if (Math.abs(target.x - x) > 5) this.aimFacing = Math.sign(target.x - x)
     const waterSway = Math.sin(this.elapsed * 3.6) * 2.5 * this.waterWeight * (1 - prone)
     const thrust = this.fireRelease * 5 + this.waterRelease * 3 + this.attackWeight *
       (this.attackElement === 'earth' ? 7 : this.attackElement === 'fire' ? 5 : this.attackElement === 'air' ? 4 : 2)
@@ -121,6 +130,20 @@ export class StickFigureView {
       )
       this.blendHands(forward, support, this.earthBlend)
     }
+    if (this.wallBlend > 0 && prone < 0.5) {
+      // Handflächen ziehen aus Hüfthöhe mit der Mauer nach oben, leichtes Zittern der Anstrengung.
+      const a = this.wallAmount
+      const shake = Math.sin(this.elapsed * 38) * (0.6 + a)
+      this.blendHands(
+        { x: x + this.aimFacing * (13 + a * 2), y: y + mix(15, -27, a) + shake },
+        { x: x + this.aimFacing * 4, y: y + mix(17, -22, a) - shake }, this.wallBlend)
+    }
+    if (this.kickWeight > 0 && prone < 0.5) {
+      // Gegenarme beim Tritt: eine Hand zieht nach hinten, die andere hebt sich nach vorn zur Balance.
+      this.blendHands(
+        { x: x - this.aimFacing * 16, y: y - 6 },
+        { x: x + this.aimFacing * 14, y: y - 14 }, this.kickWeight)
+    }
     this.airCenter.set(x + mix(this.aimFacing * 11, this.moveFacing * 16, prone), y + mix(-5, 17, prone))
     if (this.airBlend > 0) {
       const rx = 9 + this.airAmount * 3, ry = mix(10 + this.airAmount * 2, 5, prone)
@@ -160,7 +183,39 @@ export class StickFigureView {
     this.waterCharge = progress
   }
   private get waterWeight(): number { return Math.max(this.waterBlend, this.waterRelease) }
-  private get guidedHands(): number { return Math.max(this.earthBlend, this.firePose, this.waterWeight, this.airBlend, this.attackWeight) }
+  private get guidedHands(): number {
+    return Math.max(this.earthBlend, this.firePose, this.waterWeight, this.airBlend, this.attackWeight, this.wallBlend, this.kickWeight)
+  }
+
+  /** Mauer wächst (Fortschritt 0..1) oder null: Pferdestand mit aufsteigenden Händen. */
+  setWallRaise(progress: number | null): void {
+    if (progress !== null && this.wallRaise === null) this.resetCastPose()
+    this.wallRaise = progress
+    if (progress !== null) this.wallAmount = Phaser.Math.Clamp(progress, 0, 1)
+  }
+
+  /** Fußtritt zur Mauer: Ausholen, Tritt auf Hüfthöhe, zurück. `facing` ist die Richtung der Mauer. */
+  kick(facing: number): void {
+    this.resetCastPose()
+    this.kickFacing = facing >= 0 ? 1 : -1
+    this.kickTime = 0
+  }
+
+  /** 0..1: Hüllkurve des Tritts (schnell hinein, weich heraus). */
+  private get kickWeight(): number {
+    if (this.kickTime < 0) return 0
+    const u = this.kickTime / KICK_SECONDS
+    return Phaser.Math.SmoothStep(u, 0, 0.18) * (1 - Phaser.Math.SmoothStep(u, 0.72, 1))
+  }
+
+  /** Zielposition des Tritt-Fußes: erst nach hinten ausholen, dann nach vorn auf Hüfthöhe treten. */
+  private kickFootTarget(x: number, y: number): Point {
+    const u = this.kickTime / KICK_SECONDS
+    const back = { x: x - this.aimFacing * 12, y: y + 22 }
+    const strike = { x: x + this.aimFacing * 23, y: y + 8 }
+    return mixPoint(back, strike, Phaser.Math.SmoothStep(u, 0.3, 0.55))
+  }
+
 
   /** Kurzer, klarer Impuls; danach weich in die Lauf-/Ruhepose zurückkehren. */
   private get attackWeight(): number {
@@ -178,6 +233,9 @@ export class StickFigureView {
   resetCastPose(): void {
     this.earthCharge = this.fireCharge = this.waterCharge = this.airCharge = null
     this.earthBlend = this.chargePose = this.waterBlend = this.airBlend = 0
+    this.wallRaise = null
+    this.wallBlend = 0
+    this.kickTime = -1
     this.fireRelease = this.waterRelease = 0
     this.attackElement = null
     this.pulse = 0
@@ -253,6 +311,12 @@ export class StickFigureView {
     this.airBlend = mix(this.airBlend, this.airCharge !== null ? 1 : 0, 1 - Math.exp(-18 * dt))
     if (this.airCharge === null && this.airBlend < 0.002) this.airBlend = 0
     this.airPhase += dt * (4 + this.airAmount * 7)
+    this.wallBlend = mix(this.wallBlend, this.wallRaise !== null ? 1 : 0, 1 - Math.exp(-16 * dt))
+    if (this.wallRaise === null && this.wallBlend < 0.002) this.wallBlend = 0
+    if (this.kickTime >= 0) {
+      this.kickTime += dt
+      if (this.kickTime >= KICK_SECONDS) this.kickTime = -1
+    }
     this.attackTime += dt
     if (this.attackTime >= this.attackDuration) this.attackElement = null
     const speed = Math.abs(p.speedMs)
@@ -267,10 +331,13 @@ export class StickFigureView {
     this.bob = mix(this.bob, desiredBob, 1 - Math.exp(-20 * dt))
     this.lean = mix(this.lean, p.speedMs * 0.5, 1 - Math.exp(-12 * dt))
     this.aimAt(p.x, p.y, this.target, this.color, p.prone)
-    const brace = Math.max(this.earthBlend, this.firePose, this.waterWeight * 0.65, this.airBlend * 0.65,
+    const brace = Math.max(this.earthBlend, this.firePose, this.waterWeight * 0.65, this.airBlend * 0.65, this.wallBlend, this.kickWeight * 0.8,
       this.attackWeight * (this.attackElement === 'earth' ? 0.85 : this.attackElement === 'air' ? 0.7 : 0.45)) * (1 - p.prone)
     const sway = Math.sin(this.elapsed * 3.6) * 2.5 * this.waterWeight * (1 - move) * (1 - p.prone)
-    const standingHip = { x: p.x - this.aimFacing * brace * 2 - sway, y: p.y + 5 + this.bob + brace * 6 + this.earthBlend * 2 }
+    const standingHip = {
+      x: p.x - this.aimFacing * (brace * 2 + this.kickWeight * 3) - sway,
+      y: p.y + 5 + this.bob + brace * 6 + this.earthBlend * 2 + this.wallBlend * 5,
+    }
     const proneHip = { x: p.x - this.moveFacing * 5, y: p.y + 25 }
     const hip = mixPoint(standingHip, proneHip, p.prone)
     const shoulder = this.shoulder
@@ -295,7 +362,8 @@ export class StickFigureView {
         foot = { x: p.x + this.moveFacing * (back ? -8 : 7), y: p.y + 24 - (back ? 3 : 12) * rise - (p.gliding ? 5 : 0) }
       }
       const planted = p.grounded ? brace * (1 - move) : 0
-      foot = mixPoint(foot, { x: p.x + this.aimFacing * (back ? -15 - this.earthBlend * 3 : 14 + this.earthBlend * 3), y: p.y + 27 }, planted)
+      foot = mixPoint(foot, { x: p.x + this.aimFacing * (back ? -15 - this.earthBlend * 3 - this.wallBlend * 9 : 14 + this.earthBlend * 3 + this.wallBlend * 9), y: p.y + 27 }, planted)
+      if (!back && this.kickWeight > 0 && p.grounded) foot = mixPoint(foot, this.kickFootTarget(p.x, p.y), this.kickWeight)
       const footFacing = planted > 0.5 ? this.aimFacing : this.moveFacing
       const standingKnee = this.joint(standingHip, foot, 13, 13, -footFacing)
       const proneFoot = {

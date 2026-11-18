@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { EnemyShots } from '../combat/EnemyShots.ts'
 import { ElementController } from '../elements/ElementController.ts'
 import { Player } from '../entities/Player.ts'
 import { FlyingPlushEnemy } from '../entities/FlyingPlushEnemy.ts'
@@ -14,6 +15,7 @@ export class GameScene extends Phaser.Scene {
   private player!: Player
   private elements!: ElementController
   private enemies: FlyingPlushEnemy[] = []
+  private shots!: EnemyShots
   /** Scharfe HTML-Leiste unten (Leben, Elemente, Ort). */
   readonly hud = HudBar.get()
   private map!: Phaser.GameObjects.Container
@@ -37,6 +39,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, CAMP.x, CAMP.y)
     this.elements = new ElementController(this, this.player)
     this.enemies = TEST_ENEMIES.map((enemy, index) => new FlyingPlushEnemy(this, enemy.x, enemy.y, enemy.color, index))
+    this.shots = new EnemyShots(this, this.player, () => this.enemies)
     this.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onEnemyContact, this)
     this.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_ACTIVE, this.onEnemyContact, this)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -76,6 +79,7 @@ export class GameScene extends Phaser.Scene {
       this.travel(CAMP.x, CAMP.y)
     }
     this.elements.update()
+    this.shots.update()
     this.player.render(delta)
     this.elements.afterRender()
     for (const enemy of this.enemies) enemy.render()

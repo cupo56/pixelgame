@@ -8,6 +8,8 @@ export const COLLISION_CATEGORY = {
   sand: 32,
   metal: 64,
   armor: 128,
+  /** Gegner-Geschosse: treffen nur Gelände (inkl. Mauer) und Spieler. */
+  enemyShot: 256,
 } as const
 
 export const ALL_CATEGORIES = 0xffffffff
@@ -24,6 +26,8 @@ export const METAL_LAUNCH_MASK = WITHOUT_PLAYER
 
 /** Rüstungsplatten und Metallspitzen berühren nur Gegner: kein Einfluss auf Spieler, Gelände oder Stoffe. */
 export const ARMOR_MASK = COLLISION_CATEGORY.enemy
+
+export const ENEMY_SHOT_MASK = (COLLISION_CATEGORY.world | COLLISION_CATEGORY.player) >>> 0
 
 /** Gleiche negative Gruppe: Körper dieser Art kollidieren nie untereinander. */
 export const WATER_GROUP = -1

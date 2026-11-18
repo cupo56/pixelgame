@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import type { Attack } from '../attacks/Attack.ts'
 import { EarthRockAttack } from '../attacks/EarthRockAttack.ts'
+import { StoneWallAttack } from '../attacks/StoneWallAttack.ts'
 import { AirGustAttack } from '../attacks/AirGustAttack.ts'
 import { FireballAttack } from '../attacks/FireballAttack.ts'
 import { WaterJetAttack } from '../attacks/WaterJetAttack.ts'
@@ -49,6 +50,8 @@ export class ElementController {
   /** Rüstungsplatten aus gebändigtem Metall; für Browserprüfungen öffentlich. */
   readonly metalPlates: ArmorPlates
   private readonly earth: EarthRockAttack
+  /** Steinmauer (rechte Taste, Erde); für Browserprüfungen öffentlich. */
+  readonly wall: StoneWallAttack
   private readonly fire: FireballAttack
   private readonly water: WaterJetAttack
   private readonly air: AirGustAttack
@@ -77,6 +80,7 @@ export class ElementController {
       // Kleine/teilgeladene Blöcke brauchen nach dem Loslassen noch Zeit zum Anheben.
       if (this.selected.id === 'earth') player.cast(charge > 0 ? 'earth-charged' : 'earth')
     })
+    this.wall = new StoneWallAttack(scene, player.body, this.earthMaterial, this.system, { kick: (facing) => player.kickWall(facing) })
     this.fire = new FireballAttack(scene, this.fireMaterial, () => player.getCastOrigin())
     this.water = new WaterJetAttack(scene, this.waterMaterial, () => player.getWaterPose(), this.system)
     this.air = new AirGustAttack(scene, player.body, this.system, () => player.getAirPose())
@@ -114,6 +118,7 @@ export class ElementController {
     this.player.setGliding(this.selected.id === 'air' && this.player.isJumpHeld())
     this.beginPendingCharge()
     this.player.setEarthCharge(this.selected.id === 'earth' ? this.earth.chargeProgress ?? null : null)
+    this.player.setWallRaise(this.selected.id === 'earth' ? this.wall.raiseProgress ?? null : null)
     this.player.setFireCharge(this.fire.chargeProgress ?? null)
     this.player.setWaterCharge(this.water.chargeProgress ?? null)
     this.player.setAirCharge(this.air.chargeProgress ?? this.metalAttack.chargeProgress ?? null)
@@ -169,6 +174,7 @@ export class ElementController {
    */
   cancelPreparedAttack(teleport = false): void {
     this.earth.cancel()
+    this.wall.cancelGrowing()
     this.cancelChargedCasts(teleport)
     this.water.cancel()
     this.air.cancel()
@@ -179,6 +185,7 @@ export class ElementController {
   /** Menüs verwerfen gehaltene Eingaben, bereits gestartete Angriffe pausieren mit der Welt. */
   cancelCharging(): void {
     this.earth.cancelCharge()
+    this.wall.cancelGrowing()
     // Eine bereits laufende Metall-Sphäre friert mit der Szene ein und läuft nach dem Menü weiter;
     // ein nur angetippter Klick ohne laufende Ladung wird verworfen.
     this.cancelChargedCasts(this.metalAttack.isCharging)
@@ -209,6 +216,11 @@ export class ElementController {
   }
 
   private pressAttack(pointer: Phaser.Input.Pointer): void {
+    if (pointer.button === 2) {
+      // Rechte Taste: Steinmauer bändigen oder (stehend) zur Maus treten. Nur im Erdmodus.
+      if (this.selected.id === 'earth') this.wall.press(pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2)
+      return
+    }
     if (pointer.button !== 0) return
     if (this.selected.id !== 'earth') {
       this.heldCast ??= { element: this.selected.id, pressedAt: this.scene.time.now }
@@ -226,6 +238,10 @@ export class ElementController {
   }
 
   private releaseAttack(pointer: Phaser.Input.Pointer): void {
+    if (pointer.button === 2) {
+      this.wall.release()
+      return
+    }
     if (pointer.button !== 0) return
     if (this.selected.id !== 'earth') {
       if (this.heldCast?.element !== this.selected.id) return
@@ -285,6 +301,7 @@ export class ElementController {
     if (element.id !== this.selected.id) {
       this.metalAttack.cancel()
       this.earth.cancelCharge()
+      this.wall.cancelGrowing()
       this.cancelChargedCasts()
       this.player.resetCastPose()
     }
@@ -349,6 +366,7 @@ export class ElementController {
       attack?.destroy()
     }
     this.windMarker.destroy()
+    this.wall.destroy()
     this.earthMaterial.destroy()
     this.fireMaterial.destroy()
     this.waterMaterial.destroy()

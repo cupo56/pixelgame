@@ -14,6 +14,13 @@ export const COMBAT = {
   airDamage: 6,
   tornadoDamage: 8,
   chargedTornadoDamage: 18,
+  /** Gegner-Geschosse: Plüschbälle auf den Spieler. */
+  shotIntervalMinMs: 3000,
+  shotIntervalMaxMs: 4500,
+  shotRangeM: 14,
+  shotSpeedMs: 9,
+  shotDamage: 6,
+  shotLifetimeMs: 3000,
 } as const
 
 export const TEST_ENEMIES = [
