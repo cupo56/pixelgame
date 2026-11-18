@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { COMBAT } from '../config/combat.ts'
 import { COMBOS } from '../config/combos.ts'
 import { chillEnemy } from '../combat/status.ts'
+import { FireVortex } from '../combos/FireVortex.ts'
 import { GRAVITY_MS2, PHYSICS_FPS, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, holdEnemyInWind, isEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
@@ -56,12 +57,14 @@ export class AirTornadoAttack {
   private readonly probe: MatterJS.BodyType
   private charging?: Charge
   private readonly tornadoes = new Set<Tornado>()
+  private readonly fireVortex: FireVortex
 
   constructor(scene: Phaser.Scene, player: MatterJS.BodyType, getPose: () => AirPose, system: ReactionSystem) {
     this.scene = scene
     this.player = player
     this.getPose = getPose
     this.system = system
+    this.fireVortex = new FireVortex(scene, system)
     this.back = scene.add.graphics().setDepth(8).setVisible(false)
     this.front = scene.add.graphics().setDepth(14).setVisible(false)
     this.label = scene.add.text(0, 0, '', {
@@ -137,6 +140,8 @@ export class AirTornadoAttack {
       this.scene.matter.body.setVelocity(body, { x: 0, y: 0 })
       if (this.system.applyWind(body, direction, 1, 'gust')) fired++
     }
+    // Ein Feuerball im Wirbel fliegt mit Rest-Q als normaler Feuerball in Schussrichtung weiter.
+    this.fireVortex.release(tornado, direction)
     burst(this.scene, tornado.x, tornado.y - tornado.height * 0.4, COLORS, 18, 95)
     this.finish(tornado, false)
     return true
@@ -262,6 +267,12 @@ export class AirTornadoAttack {
         this.scene.matter.body.setVelocity(body, { x: nextVX, y: nextVY })
         if (orbit.rock && body.inertia !== Infinity) this.scene.matter.body.setAngularVelocity(body, angularSpeed / PHYSICS_FPS * 0.45)
       }
+      // Feuerwirbel: Ein Feuerball im Wirbel kreist mit, brennt ab und heizt die gefangenen Blöcke.
+      const rocks = [...tornado.captured].filter(([, orbit]) => orbit.rock).map(([body]) => body)
+      this.fireVortex.update(tornado, {
+        x: tornado.x, centerY, radius: tornado.radius, height: tornado.height, direction: tornado.direction,
+        open: growth > 0.8, remainingMs: tornado.duration - tornado.elapsed,
+      }, DT * 1000, rocks)
     }
   }
 
@@ -285,6 +296,8 @@ export class AirTornadoAttack {
   }
 
   private finish(tornado: Tornado, throwOut: boolean): void {
+    // Ein Feuerball im Wirbel erlischt ohne Explosion (bei der Salve wurde er vorher freigelassen).
+    this.fireVortex.end(tornado)
     for (const [body, orbit] of tornado.captured) this.releaseBody(tornado, body, orbit, throwOut)
     if (throwOut) burst(this.scene, tornado.x, tornado.y - tornado.height * 0.4, COLORS, 18, 95)
     tornado.back.destroy(); tornado.front.destroy()

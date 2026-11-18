@@ -29,7 +29,10 @@ export interface Fireball extends Substance {
   readonly kind: 'fire'
   readonly emitter: Phaser.GameObjects.Particles.ParticleEmitter
   readonly core: Phaser.GameObjects.Graphics
-  readonly expiry: Phaser.Time.TimerEvent
+  /** Flugzeit-Timer; wird beim Freilassen aus dem Feuerwirbel durch einen neuen ersetzt. */
+  expiry: Phaser.Time.TimerEvent
+  /** Im Feuerwirbel gefangen: explodiert nicht an Berührung, bis er freigegeben wird. */
+  captured: boolean
   /** Aktueller Körperradius; wächst mit Q, wenn Wind das Feuer nährt. */
   bodyRadiusPx: number
   /** Dauerhafte Emitter je Feuerball (statt eines neuen Emitters pro Frame). */
@@ -97,7 +100,7 @@ export class FireMaterial {
       frequency: 90, quantity: 1 + Math.round(charge * 2),
     }).setDepth(18)
     const fireball: Fireball = {
-      kind: 'fire', body, emitter, core, bodyRadiusPx, smokeTrail, emberTrail, seed: Math.random() * 1000,
+      kind: 'fire', body, emitter, core, bodyRadiusPx, smokeTrail, emberTrail, seed: Math.random() * 1000, captured: false,
       expiry: this.scene.time.delayedCall(MAX_FLIGHT_MS, () => this.explode(fireball)),
       temperatureC: 900, massKg: BALL_MASS_KG, wetnessKg: 0, heatJ, restingMs: 0, createdAt: this.scene.time.now,
       remove: () => {
@@ -121,7 +124,7 @@ export class FireMaterial {
   /** Explosion eines Feuerballs: wie `detonate` am Ort des Balls, danach ist der Ball verbraucht. */
   explode(substance: Substance, scorch = false, direct?: MatterJS.BodyType): void {
     const fireball = substance as Fireball
-    if (!this.fireballs.has(fireball)) return
+    if (!this.fireballs.has(fireball) || fireball.captured) return
     const { x, y } = fireball.body.position
     this.detonate({ x, y }, fireball.heatJ, scorch, direct)
     this.system.remove(fireball)
@@ -156,6 +159,31 @@ export class FireMaterial {
     steamCloud(this.scene, fireball.body.position.x, fireball.body.position.y, R.dropletMassKg * 3)
     // Zischen: kurze, schnelle weiße Funken.
     burst(this.scene, fireball.body.position.x, fireball.body.position.y, [0xffffff, 0xdfe7ec], 8, 110)
+    this.system.remove(fireball)
+  }
+
+  /** Der Feuerwirbel nimmt den Ball auf; solange er gefangen ist, explodiert er nicht. false, wenn nicht möglich. */
+  capture(fireball: Fireball): boolean {
+    if (!this.fireballs.has(fireball) || fireball.captured) return false
+    fireball.captured = true
+    return true
+  }
+
+  /** Gibt den Ball frei; mit Richtung fliegt er als normaler Feuerball weiter (neue Flugzeit, Rest-Q). */
+  release(fireball: Fireball, direction?: Phaser.Math.Vector2): void {
+    if (!this.fireballs.has(fireball)) return
+    fireball.captured = false
+    fireball.expiry.remove()
+    fireball.expiry = this.scene.time.delayedCall(MAX_FLIGHT_MS, () => this.explode(fireball))
+    if (!direction) return
+    const speed = metersPerSecondToMatter(Math.sqrt((2 * LAUNCH_ENERGY_J) / BALL_MASS_KG))
+    this.scene.matter.body.setVelocity(fireball.body, { x: direction.x * speed, y: direction.y * speed })
+  }
+
+  /** Q erschöpft: Der Ball erlischt in einem kleinen Funkenstoß, ohne Explosion und Druckwelle. */
+  fizzle(fireball: Fireball): void {
+    if (!this.fireballs.has(fireball)) return
+    burst(this.scene, fireball.body.position.x, fireball.body.position.y, FIRE_COLORS, 14, 70)
     this.system.remove(fireball)
   }
 
