@@ -5,6 +5,7 @@ import { coneBurst, dust } from '../effects/particles.ts'
 import { impactRing } from '../effects/impact.ts'
 import { screenShake } from '../effects/juice.ts'
 import { damageEnemy } from '../combat/damage.ts'
+import { chillEnemy } from '../combat/status.ts'
 import { COMBAT } from '../config/combat.ts'
 import { AirTornadoAttack, type AirPose } from './AirTornadoAttack.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
@@ -101,7 +102,11 @@ export class AirGustAttack implements Attack {
         continue
       }
       if (body.isSensor) continue
-      if (damageEnemy(body, Math.ceil(COMBAT.airDamage * strength), 'air')) impactRing(this.scene, body.position.x, body.position.y, WIND_COLORS[1])
+      if (damageEnemy(body, Math.ceil(COMBAT.airDamage * strength), 'air')) {
+        impactRing(this.scene, body.position.x, body.position.y, WIND_COLORS[1])
+        // Wind ist ein Kältetreffer: ein nasser Gegner friert fest (Stärke = Entfernungsfaktor).
+        chillEnemy(body, strength, this.scene.time.now)
+      }
       const deltaV = metersPerSecondToMatter((IMPULSE_NS * strength) / body.mass)
       this.scene.matter.body.setVelocity(body, {
         x: body.velocity.x + direction.x * deltaV,

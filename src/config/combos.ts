@@ -37,6 +37,9 @@ export const COMBOS = {
   /** Eisfessel-Dauer = waterFreezeMs · (chillFreezeMinFactor + (1 − chillFreezeMinFactor) · Stärke). */
   chillFreezeMinFactor: 0.5,
   frostImmunityMs: 3000,
+  /** Kältestärke der Quellen (0 bis 1): Eisscherbe und Wirbelkontakt; der Windstoß nutzt seinen Entfernungsfaktor. */
+  shardChillStrength: 0.5,
+  vortexChillStrength: 0.6,
 
   // Salve des Wirbels (Steinhagel).
   volleyMaxBodies: 12,

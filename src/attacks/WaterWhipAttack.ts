@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { COMBAT } from '../config/combat.ts'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, freezeEnemy } from '../combat/damage.ts'
+import { applyWet } from '../combat/status.ts'
 import { burst } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { impactRing } from '../effects/impact.ts'
@@ -217,6 +218,7 @@ export class WaterWhipAttack {
         if (this.system.whipContact(body, whip.charge >= 1 ? R.chargedWhipWaterKg : R.whipWaterKg, point)) { whip.hitTargets.add(body); continue }
         if (!damageEnemy(body, whip.damage, 'water')) continue
         impactRing(this.scene, body.position.x, body.position.y, 0x3fa7ff)
+        applyWet(body, this.scene.time.now)
         whip.hitTargets.add(body)
         const push = metersPerSecondToMatter(3 + whip.charge * 3)
         this.scene.matter.body.setVelocity(body, {

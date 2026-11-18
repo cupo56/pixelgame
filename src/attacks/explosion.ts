@@ -2,6 +2,7 @@ import type Phaser from 'phaser'
 import { metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy } from '../combat/damage.ts'
 import { impactRing } from '../effects/impact.ts'
+import { steamOffEnemy } from '../materials/SteamEffect.ts'
 
 interface Point {
   x: number
@@ -28,7 +29,10 @@ export const applyBlast = (
       continue
     }
     const falloff = 1 - distance / radiusPx
-    if (damageEnemy(body, Math.ceil(damage * falloff), 'fire')) impactRing(scene, body.position.x, body.position.y, 0xff7a1f)
+    if (damageEnemy(body, Math.ceil(damage * falloff), 'fire')) {
+      impactRing(scene, body.position.x, body.position.y, 0xff7a1f)
+      steamOffEnemy(scene, body)
+    }
     const dirX = distance > 0 ? dx / distance : 0
     const dirY = distance > 0 ? dy / distance : -1
     const deltaV = metersPerSecondToMatter((impulseNs * falloff) / body.mass)

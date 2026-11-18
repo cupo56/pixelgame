@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import { COMBAT } from '../config/combat.ts'
+import { COMBOS } from '../config/combos.ts'
+import { chillEnemy } from '../combat/status.ts'
 import { GRAVITY_MS2, PHYSICS_FPS, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, holdEnemyInWind, isEnemy } from '../combat/damage.ts'
 import { burst } from '../effects/particles.ts'
@@ -199,7 +201,11 @@ export class AirTornadoAttack {
         if (this.scene.matter.query.ray(terrain, { x: tornado.x, y: centerY }, body.position, 2).length) continue
         if (rock ? !this.system.capture(body) : !damageEnemy(body, Math.round(Phaser.Math.Linear(COMBAT.tornadoDamage, COMBAT.chargedTornadoDamage, tornado.charge)), 'air')) continue
         tornado.seen.add(body)
-        if (!rock) impactRing(this.scene, body.position.x, body.position.y, COLORS[1])
+        if (!rock) {
+          impactRing(this.scene, body.position.x, body.position.y, COLORS[1])
+          // Der Wirbel kühlt beim Einfangen: ein nasser Gegner friert fest.
+          chillEnemy(body, COMBOS.vortexChillStrength, this.scene.time.now)
+        }
         if (!rock && !isEnemy(body)) continue
         tornado.captured.set(body, { angle: Math.atan2(dy, dx), extent, rock, elapsed: 0 })
       }

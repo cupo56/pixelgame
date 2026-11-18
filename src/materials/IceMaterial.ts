@@ -1,8 +1,10 @@
 import Phaser from 'phaser'
 import { COLLISION_CATEGORY, ICE_GROUP, ICE_MASK } from '../config/collision.ts'
+import { COMBOS } from '../config/combos.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy } from '../combat/damage.ts'
+import { chillEnemy } from '../combat/status.ts'
 import { drawIceSheet, drawIceShard, fadeOut } from '../effects/decals.ts'
 import { burst } from '../effects/particles.ts'
 import { impactRing } from '../effects/impact.ts'
@@ -191,7 +193,11 @@ export class IceMaterial {
     const shard = this.system.registry.get(body)
     if (!shard || !this.shards.has(shard as IceShard) || other.isSensor) return
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
-    if (speedMs >= R.iceShardDamageSpeedMs && damageEnemy(other, R.iceShardDamage, 'water')) impactRing(this.scene, other.position.x, other.position.y, 0x9edfff)
+    if (speedMs >= R.iceShardDamageSpeedMs && damageEnemy(other, R.iceShardDamage, 'water')) {
+      impactRing(this.scene, other.position.x, other.position.y, 0x9edfff)
+      // Eisscherben sind Kältetreffer: ein nasser Gegner friert fest.
+      chillEnemy(other, COMBOS.shardChillStrength, this.scene.time.now)
+    }
     if (speedMs >= R.iceShardShatterSpeedMs) this.shatter(shard)
   }
 }

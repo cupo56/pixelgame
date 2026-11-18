@@ -12,6 +12,7 @@ import { hitStopOnce, impactRing } from '../effects/impact.ts'
 import { screenShake } from '../effects/juice.ts'
 import { approachAmbient, glowFraction, sandWettingThresholdKg, solidHeatingK } from './thermo.ts'
 import { mix } from './MetalMaterial.ts'
+import { steamOffEnemy } from './SteamEffect.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -269,6 +270,7 @@ export class EarthMaterial {
       damageEnemy(other, R.glowContactDamage, 'fire')) {
       earth.lastBurnAt.set(other, this.scene.time.now)
       impactRing(this.scene, other.position.x, other.position.y, 0xff8a1f)
+      steamOffEnemy(this.scene, other)
     }
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < IMPACT_MIN_SPEED_MS) return

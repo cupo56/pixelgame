@@ -7,6 +7,7 @@ import { SPARK_TEXTURE, burst, dust, smoke } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { flash, impactRing } from '../effects/impact.ts'
 import { approachAmbient, glowFraction, metalEdgeM, solidHeatingK } from './thermo.ts'
+import { steamOffEnemy } from './SteamEffect.ts'
 import type { Substance } from './Substance.ts'
 import type { ReactionSystem } from './ReactionSystem.ts'
 
@@ -247,6 +248,7 @@ export class MetalMaterial {
     if (damageEnemy(other, R.glowContactDamage, 'fire')) {
       block.lastBurnAt.set(other, now)
       impactRing(this.scene, other.position.x, other.position.y, 0xff8a1f)
+      steamOffEnemy(this.scene, other)
       screenShake(this.scene, 0.002, 60)
     }
   }

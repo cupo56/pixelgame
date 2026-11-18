@@ -4,6 +4,7 @@ import { COMBAT } from '../config/combat.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy } from '../combat/damage.ts'
+import { applyWet } from '../combat/status.ts'
 import { burst } from '../effects/particles.ts'
 import { impactRing } from '../effects/impact.ts'
 import { steamCloud } from './SteamEffect.ts'
@@ -246,7 +247,11 @@ export class WaterMaterial {
       (droplet as Droplet).groundedAt = now
       return
     }
-    if (damageEnemy(other, COMBAT.waterDamage, 'water')) impactRing(this.scene, candidate.position.x, candidate.position.y, WATER_COLOR)
+    if (damageEnemy(other, COMBAT.waterDamage, 'water')) {
+      impactRing(this.scene, candidate.position.x, candidate.position.y, WATER_COLOR)
+      // Wasser macht den Gegner nass: Kältetreffer (Windstoß, Eisscherben) fesseln ihn danach.
+      applyWet(other, now)
+    }
     this.system.remove(droplet)
   }
 }

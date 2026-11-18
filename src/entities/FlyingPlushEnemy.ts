@@ -1,12 +1,15 @@
 import Phaser from 'phaser'
 import { Health } from '../combat/Health.ts'
 import { registerEnemy, unregisterEnemy } from '../combat/damage.ts'
+import { isWet } from '../combat/status.ts'
 import { COLLISION_CATEGORY } from '../config/collision.ts'
 import { COMBAT } from '../config/combat.ts'
 import { PHYSICS_FPS } from '../config/physics.ts'
 import { burst } from '../effects/particles.ts'
+import { mix } from '../materials/MetalMaterial.ts'
 
 const RADIUS = 14
+const WET_TINT = 0x3a4f6e
 const OUTLINE = 0x51415e
 const WING = 0x80628f
 const MEMBRANE = 0xb190b9
@@ -109,7 +112,9 @@ export class FlyingPlushEnemy {
       g.lineBetween(side * 10, 1, points[3].x, points[3].y)
       g.lineBetween(side * 10, 3, points[5].x, points[5].y)
     }
-    const fur = this.scene.time.now < this.flashUntil ? 0xfff8ef : frozen ? 0xc5eaf2 : this.color
+    const wet = isWet(this.body, this.scene.time.now)
+    // Nasses Fell ist dunkler und bläulicher (Kältetreffer fesseln den Gegner dann).
+    const fur = this.scene.time.now < this.flashUntil ? 0xfff8ef : frozen ? 0xc5eaf2 : wet ? mix(this.color, WET_TINT, 0.45) : this.color
     // Kleine Wollbögen bilden die weiche Silhouette rund um den Körper.
     g.fillStyle(OUTLINE).fillCircle(0, 0, RADIUS + 1)
     for (let i = 0; i < 11; i++) {
@@ -131,6 +136,13 @@ export class FlyingPlushEnemy {
     g.lineStyle(1, OUTLINE).lineBetween(-3, 4, 0, 6).lineBetween(0, 6, 3, 4)
     g.lineStyle(1, 0x93758d).lineBetween(-5, 10, 5, 10)
     for (const stitch of [-3, 0, 3]) g.lineBetween(stitch, 8, stitch + 1, 12)
+    if (wet) {
+      // Tropfenläufe rinnen am Fell herunter.
+      for (let i = 0; i < 3; i++) {
+        const drip = (this.scene.time.now * 0.03 + i * 5) % 16
+        g.fillStyle(0x7fcfff, 0.85).fillRect(-9 + i * 9, Math.round(-4 + drip), 1, 3)
+      }
+    }
     if (frozen) {
       const ice = [[-19, -14], [-8, -24], [16, -20], [24, 1], [13, 22], [-14, 21], [-24, 3]]
         .map(([px, py]) => new Phaser.Math.Vector2(px, py))
@@ -143,7 +155,7 @@ export class FlyingPlushEnemy {
     }
     g.fillStyle(0x14222c).fillRect(-18, -39, 36, 5)
     g.fillStyle(0xdca2ad).fillRect(-17, -38, 34 * this.health.current / this.health.max, 3)
-    this.healthText.setPosition(Math.round(x), Math.round(y - 43)).setText(`${this.health.current} / ${this.health.max}${frozen ? '\nEIS' : ''}`)
+    this.healthText.setPosition(Math.round(x), Math.round(y - 43)).setText(`${this.health.current} / ${this.health.max}${frozen ? '\nEIS' : wet ? '\nNASS' : ''}`)
   }
 
   destroy(): void {
