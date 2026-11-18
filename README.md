@@ -131,6 +131,10 @@ Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt*
 
 **Windmarkierung:** Bei gewähltem Luftelement zeigen Erdblöcke im Windstoßkegel vier Eckklammern und einen Pfeil, dessen Länge der erwarteten Austrittsgeschwindigkeit entspricht. Die Markierung zeigt nur, sie lenkt nichts.
 
+## Aussehen der Erdblöcke
+
+Kleine Erdblöcke sind krümelige Erdbrocken mit Kieseln und Grasbüscheln an der Oberseite. Je größer die Aufladung, desto mehr wird daraus ein zerklüfteter Felsen mit Facetten, Rissen und Moos; der volle 1,5-m-Block ist ein riesiger Felsbrocken. Beim Aufsteigen aus dem Boden wird der Block an der Bodenlinie abgeschnitten, beim Versinken ebenso. Nässe dunkelt ihn ab (mit glänzenden Punkten), Glut färbt ihn rot bis weißgelb. Die Form ist ein Polygon und bleibt innerhalb des Kollisionsquadrats (`src/earth/rockShape.ts`, `rockSkin.ts`).
+
 ## Steinmauer und Gegner-Geschosse
 
 Mit **Erde** gewählt bändigt die **rechte Maustaste** eine Steinmauer (1,2 m breit, bis 5 m hoch, bis etwa 16 t). Du **zielst mit der Maus auf den Boden**, dort zeigt ein Zeichen die Stelle (bis 10 m weit, auch wenn die Maus in der Luft ist). **Halten** lässt sie aus dem Boden steigen: je länger, desto höher (1 m bis 5 m bei 1,6 s). Du stehst dabei im tiefen Stand und hebst die Hände mit; Loslassen beendet das Wachsen. Ein **Rechtsklick** auf die stehende Mauer tritt sie mit dem Fuß zur Maus: Sie gleitet mit 14 m/s los (Neigung höchstens ±35°), macht Wucht-Schaden und bricht bei hartem Aufprall. Nur eine Mauer gleichzeitig, danach 4 s Abklingzeit.

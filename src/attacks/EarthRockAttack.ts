@@ -5,6 +5,8 @@ import { AIR_DRAG, GRAVITY_MS2, PIXELS_PER_METER, metersPerSecondToMatter, meter
 import { DUST_COLORS, SPARK_TEXTURE, dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { EarthMaterial, LAUNCH_MASK } from '../materials/EarthMaterial.ts'
+import { rockStyle } from '../earth/rockShape.ts'
+import { drawRockSkin } from '../earth/rockSkin.ts'
 
 const ROCK_SIZE_M = 0.5
 const CHARGED_SIZE_M = 1.5
@@ -31,6 +33,9 @@ interface GroundSource {
 interface Lift {
   source: GroundSource
   shape: Phaser.GameObjects.Rectangle
+  /** Sichtbare Erdbrocken-/Felsen-Optik des aufsteigenden Blocks (das Rechteck bleibt unsichtbarer Körperträger). */
+  view: Phaser.GameObjects.Graphics
+  seed: number
   mode: 'waiting' | 'quick' | 'charging' | 'releasing'
   handY: number
   launchY: number
@@ -108,9 +113,10 @@ export class EarthRockAttack implements Attack {
     if (!this.clearLiftPath(source, launchY, size)) return false
 
     const shape = this.scene.add.rectangle(source.x, source.y - 0.5, size, 1, ROCK_COLOR)
-      .setStrokeStyle(1, ROCK_OUTLINE).setDepth(5).setVisible(false)
+      .setStrokeStyle(1, ROCK_OUTLINE).setDepth(5).setVisible(false).setAlpha(0)
+    const view = this.scene.add.graphics().setDepth(5)
     this.lifting = {
-      source, shape, launchY, handY: origin.y ?? this.playerBody.position.y,
+      source, shape, view, seed: Math.floor(Math.random() * 100_000), launchY, handY: origin.y ?? this.playerBody.position.y,
       mode: 'waiting', centerY: source.y + size / 2, size, charge: 0, elapsed: 0,
       releaseStartY: 0, releaseDurationMs: 0, nextDustAt: 0, nextShakeAt: 0, blocked: false,
     }
@@ -138,6 +144,7 @@ export class EarthRockAttack implements Attack {
 
   cancel(): void {
     this.lifting?.shape.destroy()
+    this.lifting?.view.destroy()
     this.lifting = undefined
     this.hideCharge()
   }
@@ -266,10 +273,13 @@ export class EarthRockAttack implements Attack {
     const top = lift.centerY - lift.size / 2
     const bottom = Math.min(lift.source.y, lift.centerY + lift.size / 2)
     const height = Math.max(0.1, bottom - top)
-    // Nur die freigelegte Scheibe zeichnen; der Rest steckt noch in der Erde.
-    lift.shape.setVisible(bottom > top)
-      .setSize(lift.size, height)
-      .setPosition(lift.source.x + jitterX, bottom - height / 2)
+    // Nur der freigelegte Teil wird gezeichnet; der Rest steckt noch in der Erde (Schnitt an der Bodenlinie).
+    lift.view.clear()
+    if (bottom <= top || height < 1) return
+    drawRockSkin(lift.view, {
+      x: lift.source.x + jitterX, y: lift.centerY, angle: 0, sizePx: lift.size, style: rockStyle(lift.size / PIXELS_PER_METER),
+      seed: lift.seed, wet: 0, glow: 0, clipY: lift.source.y,
+    })
   }
 
   private drawCharge(lift: Lift): void {
@@ -300,6 +310,7 @@ export class EarthRockAttack implements Attack {
     const size = lift.size
     const edgeM = size / PIXELS_PER_METER
     const mass = edgeM ** 3 * EARTH_DENSITY_KG_M3
+    lift.view.destroy()
     lift.shape.setVisible(true).setSize(size, size).setPosition(lift.source.x, lift.launchY)
     const body = this.scene.matter.add.rectangle(lift.source.x, lift.launchY, size, size, {
       label: 'rock',
@@ -314,7 +325,7 @@ export class EarthRockAttack implements Attack {
     const speed = metersPerSecondToMatter(Phaser.Math.Linear(Math.sqrt(2 * this.energyJoules / ROCK_MASS_KG), CHARGED_SPEED_MS, lift.charge))
     this.scene.matter.body.setVelocity(body, { x: this.aim.x * speed, y: this.aim.y * speed })
     this.scene.matter.body.setAngularVelocity(body, SPIN_RAD_PER_STEP / (1 + lift.charge * 2) * Math.sign(this.aim.x || 1))
-    this.earth.adopt(body, lift.shape, lift.charge, edgeM)
+    this.earth.adopt(body, lift.shape, lift.charge, edgeM, lift.seed)
     dust(this.scene, lift.source.x, lift.launchY, Math.round(5 + lift.charge * 25), 30 + lift.charge * 60)
     screenShake(this.scene, 0.0025 + lift.charge * 0.006, 100)
     this.onLaunch(lift.charge)

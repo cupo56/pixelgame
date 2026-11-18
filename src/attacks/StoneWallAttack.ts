@@ -263,6 +263,7 @@ export class StoneWallAttack {
     const rock = this.earth.adopt(body, shape, 0, wallEquivalentEdgeM(WALL.widthM, heightM)) as Rock
     this.scene.matter.body.setInertia(body, Infinity)
     rock.damage = WALL.damage
+    rock.customView = true
     rock.expiresAt = Infinity
     rock.solidToPlayerAt = Infinity
     this.rock = rock

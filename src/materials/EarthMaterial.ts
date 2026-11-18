@@ -3,12 +3,14 @@ import { ALL_CATEGORIES, COLLISION_CATEGORY } from '../config/collision.ts'
 import { COMBAT } from '../config/combat.ts'
 import { COMBOS } from '../config/combos.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
-import { matterToMetersPerSecond, metersPerSecondToMatter } from '../config/physics.ts'
+import { PIXELS_PER_METER, matterToMetersPerSecond, metersPerSecondToMatter } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { airBoostSpeedMs, wuchtDamage } from '../combat/wucht.ts'
 import { meteorImpact } from '../combos/Meteor.ts'
 import { isMeteorImpact } from '../combos/meteorRules.ts'
 import { dust } from '../effects/particles.ts'
+import { rockStyle } from '../earth/rockShape.ts'
+import { drawRockSkin } from '../earth/rockSkin.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { hitStopOnce, impactRing } from '../effects/impact.ts'
 import { screenShake } from '../effects/juice.ts'
@@ -37,6 +39,10 @@ export interface Rock extends Substance {
   readonly shape: Phaser.GameObjects.Rectangle
   readonly edgeM: number
   readonly charge: number
+  /** Startwert für die Zufallsform der Optik (Erdbrocken / Felsen). */
+  readonly skinSeed: number
+  /** Eigene Darstellung (Steinmauer): die Standard-Optik und -Tropfenläufe entfallen bzw. die Mauer zeichnet selbst. */
+  customView: boolean
   expiresAt: number
   solidToPlayerAt: number
   damage: number
@@ -77,6 +83,13 @@ export class EarthMaterial {
       const g = rock.overlay
       const wet = Math.min(1, rock.wetnessKg / sandWettingThresholdKg(rock.edgeM))
       g.clear()
+      if (!rock.customView) {
+        drawRockSkin(g, {
+          x: rock.body.position.x, y: rock.body.position.y, angle: rock.body.angle, sizePx: rock.edgeM * PIXELS_PER_METER,
+          style: rockStyle(rock.edgeM), seed: rock.skinSeed, wet, glow: glowFraction(rock.temperatureC, R.earthGlowC, R.earthWhiteC),
+        })
+        continue
+      }
       if (wet <= 0.05) continue
       const half = (rock.body.bounds.max.x - rock.body.bounds.min.x) / 2
       const top = rock.body.position.y - half
@@ -90,14 +103,16 @@ export class EarthMaterial {
   }
 
   /** Übernimmt einen frisch gestarteten Block (Körper + Rechteck) aus EarthRockAttack. */
-  adopt(body: MatterJS.BodyType, shape: Phaser.GameObjects.Rectangle, charge: number, edgeM: number): Substance {
+  adopt(body: MatterJS.BodyType, shape: Phaser.GameObjects.Rectangle, charge: number, edgeM: number, seed = Math.floor(Math.random() * 100_000)): Substance {
     const now = this.scene.time.now
     // Matter skaliert die Drehträgheit nicht mit der mass-Option; Quadrat: I = m·a²/6.
     const edgePx = body.bounds.max.x - body.bounds.min.x
     this.scene.matter.body.setInertia(body, (body.mass * edgePx * edgePx) / 6)
     const overlay = this.scene.add.graphics().setDepth(6)
+    // Die Optik zeichnet `drawRockSkin` in die Overlay-Grafik; das Rechteck bleibt als unsichtbarer Träger des Körpers.
+    shape.setAlpha(0)
     const rock: Rock = {
-      kind: 'earth', body, shape, edgeM, charge, overlay,
+      kind: 'earth', body, shape, edgeM, charge, overlay, skinSeed: seed, customView: false,
       temperatureC: R.ambientC, massKg: body.mass, wetnessKg: 0, heatJ: 0, restingMs: 0, createdAt: now,
       expiresAt: now + ROCK_LIFETIME_MS, solidToPlayerAt: now + OWNER_GRACE_MS,
       damage: Math.round(Phaser.Math.Linear(COMBAT.earthDamage, COMBAT.chargedEarthDamage, charge)),
@@ -231,13 +246,14 @@ export class EarthMaterial {
     const { body, shape, overlay } = rock
     const groundY = body.bounds.max.y
     const size = body.bounds.max.x - body.bounds.min.x
-    const edge = Math.max(4, rock.edgeM * 32)
+    const edge = Math.max(4, rock.edgeM * PIXELS_PER_METER)
     const x = body.position.x
-    overlay.destroy()
-    // Körper sofort aus der Physik nehmen (nach dem Schritt), die Grafik übernimmt die Animation.
+    const startAngle = body.angle
+    const style = rockStyle(rock.edgeM)
+    const wet = Math.min(1, rock.wetnessKg / sandWettingThresholdKg(rock.edgeM))
+    const glow = glowFraction(rock.temperatureC, R.earthGlowC, R.earthWhiteC)
+    // Körper sofort aus der Physik nehmen (nach dem Schritt), die Overlay-Grafik übernimmt die Animation.
     this.scene.time.delayedCall(0, () => this.scene.matter.world?.remove(body))
-    const view = this.scene.add.rectangle(x, groundY - edge / 2, edge, edge, shape.fillColor).setDepth(5)
-      .setStrokeStyle(1, 0x4a3f33).setAngle(shape.angle)
     shape.destroy()
     crackDecal(this.scene, x, groundY, 6 + size * 0.5)
     const state = { t: 0 }
@@ -245,9 +261,12 @@ export class EarthMaterial {
     this.scene.tweens.add({
       targets: state, t: 1, duration: SINK_MS, ease: 'Sine.easeIn',
       onUpdate: () => {
-        const height = Math.max(0.1, edge * (1 - state.t))
-        // Erst aufrichten, dann nur die Scheibe über dem Boden zeigen.
-        view.setAngle(view.angle * 0.85).setSize(edge, height).setPosition(x, groundY - height / 2)
+        // Erst aufrichten, dann in den Boden einsinken: gezeichnet wird nur, was über der Bodenlinie liegt.
+        overlay.clear()
+        drawRockSkin(overlay, {
+          x, y: groundY - edge / 2 + state.t * edge, angle: startAngle * (1 - Math.min(1, state.t * 3)), sizePx: edge,
+          style, seed: rock.skinSeed, wet, glow, clipY: groundY,
+        })
         if (state.t >= nextDust) {
           dust(this.scene, x, groundY - 1, 3, 35)
           nextDust += 0.2
@@ -255,7 +274,7 @@ export class EarthMaterial {
       },
       onComplete: () => {
         dust(this.scene, x, groundY - 1, 6, 30)
-        view.destroy()
+        overlay.destroy()
       },
     })
   }
