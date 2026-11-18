@@ -1,9 +1,11 @@
 import Phaser from 'phaser'
 import { ALL_CATEGORIES, COLLISION_CATEGORY } from '../config/collision.ts'
 import { COMBAT } from '../config/combat.ts'
+import { COMBOS } from '../config/combos.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
+import { airBoostSpeedMs, wuchtDamage } from '../combat/wucht.ts'
 import { dust } from '../effects/particles.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { hitStopOnce, impactRing } from '../effects/impact.ts'
@@ -21,12 +23,8 @@ const SINK_MS = 1200
 const SINK_MAX_SPEED_MS = 0.3
 const OWNER_GRACE_MS = 220
 const IMPACT_MIN_SPEED_MS = 3
-/** Elementkombination: Windschub skaliert mit Fläche/Masse, also 1/Kantenlänge. */
-const AIR_BOOST_MS = 18
-const AIR_MAX_SPEED_MS = 30
+/** Anheben beim Windstoß vom Boden (Windschub und Tempolimit stehen in config/combos.ts). */
 const AIR_LIFT_MS = 4.5
-/** Masse des 0,5-m-Referenzblocks, auf die der Windschub bezogen ist. */
-const REFERENCE_MASS_KG = 0.5 ** 3 * R.earthDensityKgM3
 export const LAUNCH_MASK = (ALL_CATEGORIES & ~COLLISION_CATEGORY.player) >>> 0
 const ROCK_COLOR = 0x947653
 const WET_ROCK_COLOR = 0x5e4b3a
@@ -165,7 +163,7 @@ export class EarthMaterial {
   private pushWithAir(rock: Rock, direction: Phaser.Math.Vector2, strength: number): void {
     if (strength <= 0) return
     const body = rock.body
-    const deltaV = metersPerSecondToMatter(AIR_BOOST_MS * Math.cbrt(REFERENCE_MASS_KG / body.mass) * strength)
+    const deltaV = metersPerSecondToMatter(airBoostSpeedMs(body.mass, strength))
     let vx = body.velocity.x + direction.x * deltaV
     let vy = body.velocity.y + direction.y * deltaV
     const supportY = direction.y < 0.65 ? this.supportY(body) : undefined
@@ -175,7 +173,7 @@ export class EarthMaterial {
       dust(this.scene, body.position.x, supportY, 12, 60)
     }
     // Wiederholte Stöße bleiben kontrollierbar, ohne bestehendes höheres Tempo abzubremsen.
-    const limit = Math.max(metersPerSecondToMatter(AIR_MAX_SPEED_MS), Math.hypot(body.velocity.x, body.velocity.y))
+    const limit = Math.max(metersPerSecondToMatter(COMBOS.airMaxSpeedMs), Math.hypot(body.velocity.x, body.velocity.y))
     const speed = Math.hypot(vx, vy)
     if (speed > limit) { vx *= limit / speed; vy *= limit / speed }
     this.scene.matter.body.setVelocity(body, { x: vx, y: vy })
@@ -274,7 +272,8 @@ export class EarthMaterial {
     }
     const speedMs = matterToMetersPerSecond(Math.hypot(body.velocity.x - other.velocity.x, body.velocity.y - other.velocity.y))
     if (speedMs < IMPACT_MIN_SPEED_MS) return
-    if (!earth.hitTargets.has(other) && damageEnemy(other, earth.damage, 'earth')) {
+    // Schaden folgt der Wucht; der Festwert der Ladung bleibt Untergrenze (nie schwächer als zuvor).
+    if (!earth.hitTargets.has(other) && damageEnemy(other, wuchtDamage(body.mass, speedMs, earth.damage), 'earth')) {
       earth.hitTargets.add(other)
       impactRing(this.scene, other.position.x, other.position.y, 0xb08a5a)
       if (earth.charge >= 0.5) hitStopOnce(this.scene, 35)
