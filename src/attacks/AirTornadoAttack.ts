@@ -121,6 +121,27 @@ export class AirTornadoAttack {
     for (const tornado of [...this.tornadoes]) this.finish(tornado, false)
   }
 
+  /**
+   * Salve (Steinhagel): Hat ein Wirbel Blöcke gefangen, werden sie zur Maus geschleudert. Jeder Block erhält
+   * den vollen Windschub aus `ReactionSystem.applyWind` (massenabhängig, mit Wucht-Schaden); der Wirbel endet.
+   * @returns true, wenn mindestens ein Block gefangen war; sonst wirkt der Klick als normaler Windstoß.
+   */
+  volley(direction: Phaser.Math.Vector2): boolean {
+    const tornado = [...this.tornadoes].find((candidate) => [...candidate.captured.values()].some((orbit) => orbit.rock))
+    if (!tornado) return false
+    let fired = 0
+    for (const [body, orbit] of [...tornado.captured]) {
+      this.releaseBody(tornado, body, orbit, false)
+      if (!orbit.rock || fired >= COMBOS.volleyMaxBodies) continue
+      // Die Umlaufbewegung wird verworfen, damit der Block genau zur Maus fliegt.
+      this.scene.matter.body.setVelocity(body, { x: 0, y: 0 })
+      if (this.system.applyWind(body, direction, 1, 'gust')) fired++
+    }
+    burst(this.scene, tornado.x, tornado.y - tornado.height * 0.4, COLORS, 18, 95)
+    this.finish(tornado, false)
+    return true
+  }
+
   destroy(): void {
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.BEFORE_UPDATE, this.step, this)
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.update, this)

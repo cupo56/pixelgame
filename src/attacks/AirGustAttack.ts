@@ -54,10 +54,14 @@ export class AirGustAttack implements Attack {
     if (this.isCharging) return false
     const originX = origin.x ?? 0
     const originY = origin.y ?? 0
-    this.pushBodies(originX, originY, direction)
-    this.recoil(direction)
+    // Steinhagel: Ein eigener Wirbel mit gefangenen Blöcken wird per Klick als Salve entladen (ohne Rückstoß).
+    const volley = this.tornado.volley(direction)
+    if (!volley) {
+      this.pushBodies(originX, originY, direction)
+      this.recoil(direction)
+    }
     this.windArcs(originX, originY, direction)
-    this.groundDust(originX, originY, direction)
+    if (!volley) this.groundDust(originX, originY, direction)
     coneBurst(
       this.scene,
       originX,
