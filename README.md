@@ -133,7 +133,9 @@ Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt*
 
 ## Browserprüfung
 
-`scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab.
+`scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab. Die erste Szene („Wasser löscht Feuer“) ist zeitabhängig und besteht nur gelegentlich; die übrigen Szenen sind stabil.
+
+`scripts/check-combos.py` prüft die Element-Kombos: Wucht-Schaden, Meteor (genau eine Explosion je Erhitzung), die Kette Nass → Windstoß → Eisfessel samt Frostschutz und Trocknen durch Feuer, die Salve des Wirbels, den Feuerwirbel (Ball explodiert nicht, Wirbelende löscht ihn), das Körperbudget und die Windmarkierung. Jede Szenengruppe startet ein frisches Spiel; Screenshots landen in `artifacts`. Der Dev-Server muss auf `127.0.0.1` laufen (`npx vite --host 127.0.0.1 --port 5174`).
 
 `scripts/check-grenzland.py` verwendet eine vorhandene Python-Playwright-Installation mit Chromium. Der Test prüft den tatsächlichen Fußweg zur Grotte, beide Aufzüge, den Aufwind, einen Inselsprung ohne Luft, die vier Angriffe, Karte, Rückruf und Speicherung nach dem Neuladen. Screenshots landen im ignorierten Ordner `artifacts`.
 
