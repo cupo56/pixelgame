@@ -1,3 +1,9 @@
+/** Zielen am Boden für alle Erd-Angriffe (Mauer, Erdblock): Reichweite waagerecht und in der Höhe. */
+export const GROUND_AIM = {
+  reachM: 10,
+  verticalReachM: 5,
+} as const
+
 /** Stellwerte der Steinmauer (rechte Taste, Erde). Längen in Metern, Zeiten in ms. */
 export const WALL = {
   widthM: 1.2,
@@ -11,9 +17,6 @@ export const WALL = {
   minHeightM: 1,
   /** Mindestabstand zum Spieler, damit er nicht in der Mauer steht. */
   minDistanceM: 1.5,
-  /** Reichweite der Zielposition am Boden (waagerecht) und in der Höhe. */
-  reachM: 10,
-  verticalReachM: 5,
   health: 60,
   lifetimeMs: 15_000,
   sinkMs: 1400,

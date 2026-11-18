@@ -5,6 +5,8 @@ import { AIR_DRAG, GRAVITY_MS2, PIXELS_PER_METER, metersPerSecondToMatter, meter
 import { DUST_COLORS, SPARK_TEXTURE, dust } from '../effects/particles.ts'
 import { screenShake } from '../effects/juice.ts'
 import { EarthMaterial, LAUNCH_MASK } from '../materials/EarthMaterial.ts'
+import { findGroundSpot } from '../earth/groundSpot.ts'
+import { GROUND_AIM } from '../config/wall.ts'
 import { rockStyle } from '../earth/rockShape.ts'
 import { drawRockSkin } from '../earth/rockSkin.ts'
 
@@ -19,9 +21,10 @@ const ROCK_COLOR = 0x947653
 const ROCK_OUTLINE = 0x4a3f33
 const LIFT_MS = 260
 const HOLD_MS = 80
-const GROUND_REACH_M = 1.75
-const SIDE_REACH_M = 2.5
-const CONTROL_REACH_M = 4
+/** Ein Klick ohne Mausbewegung wirft den Block vom Spieler weg, leicht nach oben (Grad). */
+const FALLBACK_THROW_DEG = 12
+/** Ab dieser Mausbewegung seit dem Drücken (Pixel) zielt der Wurf zur Maus. */
+const AIM_MOVE_MIN_PX = 30
 const SPIN_RAD_PER_STEP = 0.025
 
 interface GroundSource {
@@ -37,7 +40,8 @@ interface Lift {
   view: Phaser.GameObjects.Graphics
   seed: number
   mode: 'waiting' | 'quick' | 'charging' | 'releasing'
-  handY: number
+  /** Mausposition beim Drücken: Bezug dafür, ob der Spieler danach gezielt hat. */
+  press: { x: number; y: number }
   launchY: number
   centerY: number
   size: number
@@ -68,6 +72,8 @@ export class EarthRockAttack implements Attack {
   private readonly earth: EarthMaterial
   private readonly onLaunch: (charge: number) => void
   private readonly aim = new Phaser.Math.Vector2(1, 0)
+  /** Aktuelle Mausposition (Welt): Zielpunkt des Wurfs beim Loslassen. */
+  private readonly mouse = new Phaser.Math.Vector2()
   private readonly effects = new Set<Effect>()
   private readonly chargeGraphics: Phaser.GameObjects.Graphics
   private readonly chargeText: Phaser.GameObjects.Text
@@ -97,26 +103,33 @@ export class EarthRockAttack implements Attack {
   }
 
   execute(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): boolean {
-    if (!this.begin(origin, direction)) return false
+    if (!this.begin(origin, direction, this.mouse.clone())) return false
     return this.release()
   }
 
   /** Linke Maustaste: kurzes Tippen bleibt ein Wurf, längeres Halten lädt auf. */
-  begin(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2): boolean {
+  /** Zielpunkt des Wurfs (Mausposition in Weltkoordinaten); jeden Frame und beim Loslassen setzen. */
+  setMouse(target: Phaser.Types.Math.Vector2Like): void {
+    this.mouse.set(target.x ?? 0, target.y ?? 0)
+  }
+
+  /** `target` ist die Mausposition: der Block steigt am Boden darunter auf. */
+  begin(origin: Phaser.Types.Math.Vector2Like, direction: Phaser.Math.Vector2, target: Phaser.Math.Vector2): boolean {
     if (this.lifting) return false
     this.updateAim(origin, direction)
-    const source = this.findGround(origin)
+    this.setMouse(target)
+    const source = this.findGround(target)
     if (!source) return false
     const size = metersToPixels(ROCK_SIZE_M)
     // Auch in Bauchlage muss der ganze rotierende Block über die Oberfläche passen.
-    const launchY = Math.min(origin.y ?? this.playerBody.position.y, source.y - size / Math.SQRT2 - 2)
+    const launchY = source.y - size / Math.SQRT2 - 2
     if (!this.clearLiftPath(source, launchY, size)) return false
 
     const shape = this.scene.add.rectangle(source.x, source.y - 0.5, size, 1, ROCK_COLOR)
       .setStrokeStyle(1, ROCK_OUTLINE).setDepth(5).setVisible(false).setAlpha(0)
     const view = this.scene.add.graphics().setDepth(5)
     this.lifting = {
-      source, shape, view, seed: Math.floor(Math.random() * 100_000), launchY, handY: origin.y ?? this.playerBody.position.y,
+      source, shape, view, seed: Math.floor(Math.random() * 100_000), launchY, press: { x: target.x, y: target.y },
       mode: 'waiting', centerY: source.y + size / 2, size, charge: 0, elapsed: 0,
       releaseStartY: 0, releaseDurationMs: 0, nextDustAt: 0, nextShakeAt: 0, blocked: false,
     }
@@ -163,36 +176,27 @@ export class EarthRockAttack implements Attack {
     this.chargeText.destroy()
   }
 
-  private findGround(origin: Phaser.Types.Math.Vector2Like): GroundSource | undefined {
-    const size = metersToPixels(ROCK_SIZE_M)
+  /** Boden unter der Maus; der ausgewachsene Block muss dort Platz haben und der Weg nach oben frei sein. */
+  private findGround(target: Phaser.Math.Vector2): GroundSource | undefined {
     const vertices = this.playerBody.vertices
     if (!vertices?.length) return undefined
-    const footY = Math.max(...vertices.map((v) => v.y))
     const halfWidth = (Math.max(...vertices.map((v) => v.x)) - Math.min(...vertices.map((v) => v.x))) / 2
-    const side = Math.abs(this.aim.x) > 0.1 ? Math.sign(this.aim.x) : Math.sign((origin.x ?? 0) - this.playerBody.position.x) || 1
-    // Platz für den ausgewachsenen Block reservieren, auch wenn der Klick kurz bleibt.
-    const spacing = halfWidth + metersToPixels(CHARGED_SIZE_M) / 2 + 12
-    const preferredX = this.playerBody.position.x + side * spacing
-    let best: GroundSource | undefined
-    let bestScore = Infinity
-    for (const body of this.scene.matter.world.getAllBodies()) {
-      // Wände, Sensoren und bereits geworfene Steine sind keine Bodenquelle.
-      if (!body.isStatic || body.isSensor || body.label !== 'terrain') continue
-      const { min, max } = body.bounds
-      if (max.x - min.x < size + 2 || max.y - min.y < size) continue
-      if (min.y < footY - metersToPixels(0.5) || min.y > footY + metersToPixels(GROUND_REACH_M)) continue
-      for (const candidateX of [preferredX, this.playerBody.position.x - side * spacing]) {
-        const x = Phaser.Math.Clamp(candidateX, min.x + size / 2 + 1, max.x - size / 2 - 1)
-        const distanceX = Math.abs(x - this.playerBody.position.x)
-        if (distanceX < halfWidth + size / 2 + 2 || distanceX > metersToPixels(SIDE_REACH_M)) continue
-        const source = { x, y: min.y, body }
-        const launchY = Math.min(origin.y ?? this.playerBody.position.y, min.y - size / Math.SQRT2 - 2)
-        if (!this.clearLiftPath(source, launchY, size)) continue
-        const score = Math.abs(x - preferredX) + Math.abs(min.y - footY) * 0.5
-        if (score < bestScore) { best = source; bestScore = score }
-      }
-    }
-    return best
+    const size = metersToPixels(ROCK_SIZE_M)
+    const full = metersToPixels(CHARGED_SIZE_M)
+    const spot = findGroundSpot(this.scene, this.playerBody, target, full + 2, halfWidth + full / 2 + 4)
+    if (!spot) return undefined
+    const source = { x: spot.x, y: spot.groundY, body: spot.terrain }
+    return this.clearLiftPath(source, source.y - size / Math.SQRT2 - 2, size) ? source : undefined
+  }
+
+  /** Wurfrichtung beim Loslassen: zur Maus; ein Klick ohne Mausbewegung wirft vom Spieler weg, leicht nach oben. */
+  private throwDirection(lift: Lift): Phaser.Math.Vector2 {
+    const moved = Math.hypot(this.mouse.x - lift.press.x, this.mouse.y - lift.press.y)
+    const dx = this.mouse.x - lift.source.x, dy = this.mouse.y - lift.launchY
+    if (moved >= AIM_MOVE_MIN_PX && Math.hypot(dx, dy) > 1) return new Phaser.Math.Vector2(dx, dy).normalize()
+    const side = Math.sign(lift.source.x - this.playerBody.position.x) || 1
+    const rad = (FALLBACK_THROW_DEG * Math.PI) / 180
+    return new Phaser.Math.Vector2(side * Math.cos(rad), -Math.sin(rad))
   }
 
   private clearLiftPath(source: GroundSource, launchY: number, size: number): boolean {
@@ -212,7 +216,7 @@ export class EarthRockAttack implements Attack {
     const lift = this.lifting
     if (lift) {
       const distance = Phaser.Math.Distance.Between(lift.source.x, lift.source.y, this.playerBody.position.x, this.playerBody.position.y)
-      if (distance > metersToPixels(CONTROL_REACH_M) || !this.clearLiftPath(lift.source, lift.launchY, lift.size)) {
+      if (distance > metersToPixels(GROUND_AIM.reachM + 2) || !this.clearLiftPath(lift.source, lift.launchY, lift.size)) {
         this.cancel()
       } else {
         this.updateLift(lift, Math.min(deltaMs, 50), now)
@@ -237,7 +241,7 @@ export class EarthRockAttack implements Attack {
     if (lift.mode === 'charging') {
       const charge = Math.min(1, lift.charge + deltaMs / CHARGE_MS)
       const size = metersToPixels(Phaser.Math.Linear(ROCK_SIZE_M, CHARGED_SIZE_M, charge))
-      const launchY = Math.min(lift.handY, lift.source.y - size / Math.SQRT2 - 2)
+      const launchY = lift.source.y - size / Math.SQRT2 - 2
       // Nur tatsächlich formbare Masse zählt als Aufladung und später als Schaden.
       lift.blocked = !this.clearLiftPath(lift.source, launchY, size)
       if (!lift.blocked) {
@@ -323,8 +327,9 @@ export class EarthRockAttack implements Attack {
     })
     this.scene.matter.add.gameObject(lift.shape, body)
     const speed = metersPerSecondToMatter(Phaser.Math.Linear(Math.sqrt(2 * this.energyJoules / ROCK_MASS_KG), CHARGED_SPEED_MS, lift.charge))
-    this.scene.matter.body.setVelocity(body, { x: this.aim.x * speed, y: this.aim.y * speed })
-    this.scene.matter.body.setAngularVelocity(body, SPIN_RAD_PER_STEP / (1 + lift.charge * 2) * Math.sign(this.aim.x || 1))
+    const throwDir = this.throwDirection(lift)
+    this.scene.matter.body.setVelocity(body, { x: throwDir.x * speed, y: throwDir.y * speed })
+    this.scene.matter.body.setAngularVelocity(body, SPIN_RAD_PER_STEP / (1 + lift.charge * 2) * Math.sign(throwDir.x || 1))
     this.earth.adopt(body, lift.shape, lift.charge, edgeM, lift.seed)
     dust(this.scene, lift.source.x, lift.launchY, Math.round(5 + lift.charge * 25), 30 + lift.charge * 60)
     screenShake(this.scene, 0.0025 + lift.charge * 0.006, 100)

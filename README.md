@@ -131,6 +131,10 @@ Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt*
 
 **Windmarkierung:** Bei gewähltem Luftelement zeigen Erdblöcke im Windstoßkegel vier Eckklammern und einen Pfeil, dessen Länge der erwarteten Austrittsgeschwindigkeit entspricht. Die Markierung zeigt nur, sie lenkt nichts.
 
+## Erdblock am Boden anvisieren
+
+Der Erdblock (linke Maustaste, Erde) steigt jetzt dort aus dem Boden auf, wo die Maus beim Drücken hinzeigt (bis 10 m weit, auch wenn die Maus in der Luft ist; ein Zielzeichen zeigt die Stelle). **Danach zielt die Maus:** Beim Loslassen fliegt der Block vom Startpunkt zur aktuellen Mausposition. Ein reiner Klick ohne Mausbewegung wirft ihn geradeaus vom Spieler weg, leicht nach oben. Halten lädt wie bisher auf (bis zum 1,5-m-Felsen). Der Block steigt nur knapp über den Boden, nicht mehr bis zur Hand. Die Stelle am Boden teilen sich Mauer und Block (`src/earth/groundSpot.ts`, Reichweite in `GROUND_AIM`).
+
 ## Aussehen der Erdblöcke
 
 Kleine Erdblöcke sind krümelige Erdbrocken mit Kieseln und Grasbüscheln an der Oberseite. Je größer die Aufladung, desto mehr wird daraus ein zerklüfteter Felsen mit Facetten, Rissen und Moos; der volle 1,5-m-Block ist ein riesiger Felsbrocken. Beim Aufsteigen aus dem Boden wird der Block an der Bodenlinie abgeschnitten, beim Versinken ebenso. Nässe dunkelt ihn ab (mit glänzenden Punkten), Glut färbt ihn rot bis weißgelb. Die Form ist ein Polygon und bleibt innerhalb des Kollisionsquadrats (`src/earth/rockShape.ts`, `rockSkin.ts`).
@@ -147,7 +151,7 @@ Gegner schießen jetzt alle 3 bis 4,5 s einen Plüsch-Ball auf dich, wenn du nä
 
 `scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab. Die erste Szene („Wasser löscht Feuer“) ist zeitabhängig und besteht nur gelegentlich; die übrigen Szenen sind stabil.
 
-`scripts/check-wall.py` prüft die Steinmauer (Aufstieg, Schutz mit Haltbarkeit, Zerfall, Tritt mit Schaden, Versinken, Luftstoß) und die Gegner-Schüsse; Screenshots der Figurenhaltungen liegen als `artifacts/wand-*.png` bereit.
+`scripts/check-wall.py` prüft die Steinmauer und das Anvisieren des Erdblocks am Boden (Aufstieg, Schutz mit Haltbarkeit, Zerfall, Tritt mit Schaden, Versinken, Luftstoß) und die Gegner-Schüsse; Screenshots der Figurenhaltungen liegen als `artifacts/wand-*.png` bereit.
 
 `scripts/check-combos.py` prüft die Element-Kombos: Wucht-Schaden, Meteor (genau eine Explosion je Erhitzung), die Kette Nass → Windstoß → Eisfessel samt Frostschutz und Trocknen durch Feuer, die Salve des Wirbels, den Feuerwirbel (Ball explodiert nicht, Wirbelende löscht ihn), das Körperbudget und die Windmarkierung. Jede Szenengruppe startet ein frisches Spiel; Screenshots landen in `artifacts`. Der Dev-Server muss auf `127.0.0.1` laufen (`npx vite --host 127.0.0.1 --port 5174`).
 

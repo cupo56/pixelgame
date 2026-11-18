@@ -114,6 +114,70 @@ def scene_aufladung_ziel(browser: Browser) -> None:
     page.close()
 
 
+def launched_rock(page: Page) -> dict:
+    """Wartet, bis ein Erdblock fliegt, und liest Ort und Tempo sofort nach dem Start."""
+    page.wait_for_function("() => { const r = sys().registry.ofKind('earth')[0]; return r && r.body.speed > 1 }", timeout=5000)
+    return ev(page, """() => { const r = sys().registry.ofKind('earth')[0]; return {
+        x: r.body.position.x, y: r.body.position.y, vx: r.body.velocity.x, vy: r.body.velocity.y, edge: r.edgeM }; }""")
+
+
+def scene_erdblock_ziel(browser: Browser) -> None:
+    """Erdblock (linke Taste): Stelle am Boden unter der Maus, Wurfrichtung durch Mausbewegung nach dem Drücken."""
+    page, errors = new_game(browser)
+    park_enemies(page)
+    e0 = ev(page, '() => enemyPos(0)')
+    place(page, e0['x'] - 250, 871)
+    me = ev(page, '() => window.player()')
+    page.keyboard.press('1')
+
+    def press_at(dx: float, dy: float) -> None:
+        aim(page, me['x'] + dx, me['y'] + dy)
+        page.mouse.down()
+
+    # 1. Klick ohne Mausbewegung: Block steigt 6 m weiter vorn auf und fliegt geradeaus vom Spieler weg.
+    press_at(192, 40)
+    page.wait_for_timeout(40)
+    page.mouse.up()
+    rock = launched_rock(page)
+    assert abs(rock['x'] - (me['x'] + 192)) < 40, (rock['x'], me['x'] + 192)
+    assert rock['vx'] > 2 and rock['vy'] < 0.5, rock
+    print(f"Erdblock: Klick am Boden 6 m voraus, Block fliegt vom Spieler weg (vx {rock['vx'] * 60 / 32:.1f} m/s).", flush=True)
+    ev(page, 'window.clearWorld')
+    page.wait_for_timeout(1500)
+
+    # 2. Gehalten, dann Maus hoch nach rechts oben bewegt: Wurf zur Maus.
+    press_at(224, 40)
+    page.wait_for_timeout(300)
+    aim(page, me['x'] + 424, me['y'] - 200)
+    page.wait_for_timeout(60)
+    page.mouse.up()
+    rock = launched_rock(page)
+    assert abs(rock['x'] - (me['x'] + 224)) < 40 and rock['vx'] > 2 and rock['vy'] < -2, rock
+    print(f"Erdblock: nach dem Drücken zur Maus gezielt (vx {rock['vx']:.1f}, vy {rock['vy']:.1f} px/Schritt, nach oben).", flush=True)
+    ev(page, 'window.clearWorld')
+    page.wait_for_timeout(1500)
+
+    # 3. Volle Ladung 9 m voraus: Felsen von 1,5 m.
+    press_at(288, 40)
+    page.wait_for_timeout(2600)
+    page.mouse.up()
+    rock = launched_rock(page)
+    assert abs(rock['edge'] - 1.5) < 0.05 and abs(rock['x'] - (me['x'] + 288)) < 45, rock
+    print(f"Erdblock: voll geladener Felsen ({rock['edge']:.1f} m) 9 m voraus aufgestiegen.", flush=True)
+    ev(page, 'window.clearWorld')
+    page.wait_for_timeout(1500)
+
+    # 4. Reichweite: weiter als 10 m wird auf 10 m begrenzt.
+    press_at(450, 40)
+    page.wait_for_timeout(40)
+    page.mouse.up()
+    rock = launched_rock(page)
+    assert rock['x'] - me['x'] <= 330, rock
+    print(f"Erdblock: Reichweite auf 10 m begrenzt (Block bei {(rock['x'] - me['x']) / 32:.1f} m).", flush=True)
+    assert errors == [], errors
+    page.close()
+
+
 def scene_schutz(browser: Browser) -> None:
     page, errors = new_game(browser)
     e0 = ev(page, '() => enemyPos(0)')
@@ -208,7 +272,7 @@ def scene_gegner_schuss(browser: Browser) -> None:
 def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        for scene in (scene_wall, scene_aufladung_ziel, scene_schutz, scene_tritt, scene_gegner_schuss):
+        for scene in (scene_wall, scene_aufladung_ziel, scene_erdblock_ziel, scene_schutz, scene_tritt, scene_gegner_schuss):
             scene(browser)
         print('Alle Wandprüfungen bestanden.', flush=True)
         browser.close()

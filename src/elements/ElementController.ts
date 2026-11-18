@@ -127,6 +127,7 @@ export class ElementController {
     const target = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2
     // Erde: Zielzeichen für die Mauer am Boden unter der Maus.
     this.wall.updateAim(this.selected.id === 'earth' ? target : undefined)
+    this.earth.setMouse(target)
     const origin = this.player.aimAt(target, this.selected.color)
     const direction = target.clone().subtract(origin)
     if (direction.lengthSq() === 0) {
@@ -234,7 +235,7 @@ export class ElementController {
     if (direction.lengthSq() < 1) return
     direction.normalize()
     if (this.scene.time.now < (this.nextReadyAt.get('earth') ?? 0)) return
-    if (this.earth.begin(origin, direction)) {
+    if (this.earth.begin(origin, direction, target)) {
       this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs * progression.cooldownMultiplier('earth'))
     }
   }
@@ -278,6 +279,7 @@ export class ElementController {
     const target = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2
     const origin = this.player.aimAt(target, this.selected.color)
     this.earth.updateAim(origin, target.clone().subtract(origin))
+    this.earth.setMouse(target)
     if (this.earth.release()) {
       this.nextReadyAt.set('earth', this.scene.time.now + this.earth.cooldownMs * progression.cooldownMultiplier('earth'))
     }

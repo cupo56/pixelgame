@@ -4,9 +4,10 @@ import { registerShotTarget, unregisterShotTarget } from '../combat/shotTargets.
 import { ALL_CATEGORIES, COLLISION_CATEGORY } from '../config/collision.ts'
 import { AIR_DRAG, matterToMetersPerSecond, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { WALL } from '../config/wall.ts'
+import { findGroundSpot, type GroundSpot } from '../earth/groundSpot.ts'
 import { drawWall } from '../earth/wallDraw.ts'
 import {
-  clampThrowDirection, wallEquivalentEdgeM, wallGrowthProgress, wallHeightAt, wallMassKg, wallPlacementX, wallTakeDamage,
+  clampThrowDirection, wallEquivalentEdgeM, wallGrowthProgress, wallHeightAt, wallMassKg, wallTakeDamage,
 } from '../earth/wallRules.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { screenShake } from '../effects/juice.ts'
@@ -26,11 +27,7 @@ interface Hooks {
   kick: (facing: number) => void
 }
 
-interface Placement {
-  x: number
-  groundY: number
-  terrain: MatterJS.BodyType
-}
+type Placement = GroundSpot
 
 /**
  * Steinmauer: rechte Taste halten lässt sie Lage für Lage aus dem Boden steigen, ein Rechtsklick tritt sie
@@ -153,27 +150,10 @@ export class StoneWallAttack {
     }
   }
 
-  /** Boden unter der Maus: nächste tragende Fläche im Radius um den Spieler, frei von Hindernissen. */
+  /** Boden unter der Maus (siehe `findGroundSpot`), frei von Hindernissen für die Mindesthöhe. */
   private findPlacement(target: Phaser.Math.Vector2): Placement | undefined {
-    const vertices = this.playerBody.vertices
-    if (!vertices?.length) return undefined
-    const footY = Math.max(...vertices.map((v) => v.y))
-    const facing = Math.sign(target.x - this.playerBody.position.x) || 1
-    const clampedX = Phaser.Math.Clamp(target.x, this.playerBody.position.x - metersToPixels(WALL.reachM), this.playerBody.position.x + metersToPixels(WALL.reachM))
-    const x = wallPlacementX(clampedX, this.playerBody.position.x, metersToPixels(WALL.minDistanceM), metersToPixels(WALL.reachM), facing)
-    const width = metersToPixels(WALL.widthM)
-    let best: Placement | undefined
-    let bestScore = Infinity
-    for (const body of this.scene.matter.world.getAllBodies()) {
-      if (!body.isStatic || body.isSensor || body.label !== 'terrain') continue
-      const { min, max } = body.bounds
-      if (x - width / 2 < min.x + 1 || x + width / 2 > max.x - 1) continue
-      if (Math.abs(min.y - footY) > metersToPixels(WALL.verticalReachM)) continue
-      // Der Boden, der der Maus senkrecht am nächsten liegt (Maus in der Luft: Boden darunter bevorzugt).
-      const score = Math.abs(min.y - target.y) + (min.y < target.y - metersToPixels(1) ? 40 : 0)
-      if (score < bestScore) { best = { x, groundY: min.y, terrain: body }; bestScore = score }
-    }
-    return best && this.isClear(best, WALL.minHeightM) ? best : undefined
+    const spot = findGroundSpot(this.scene, this.playerBody, target, metersToPixels(WALL.widthM), metersToPixels(WALL.minDistanceM))
+    return spot && this.isClear(spot, WALL.minHeightM) ? spot : undefined
   }
 
   /** Frei von Spieler, Gegnern, Erde, Metall und anderem Gelände über der Wuchsfläche. */

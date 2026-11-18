@@ -87,7 +87,15 @@ with sync_playwright() as p:
     place(420, 871)
     me = page.evaluate('() => window.player()')
     page.keyboard.press('1')
-    click(me['x'] + 40, me['y'] + 60)
+    # Erdblock: Stelle am Boden per Maus festlegen, danach nach unten zielen, damit er im Boden liegen bleibt.
+    spot = page.evaluate('([x, y]) => window.toScreen(x, y)', [me['x'] + 40, me['y'] + 60])
+    below = page.evaluate('([x, y]) => window.toScreen(x, y)', [me['x'] + 40, me['y'] + 160])
+    page.mouse.move(spot['x'], spot['y'])
+    page.mouse.down()
+    page.wait_for_timeout(40)
+    page.mouse.move(below['x'], below['y'])
+    page.wait_for_timeout(40)
+    page.mouse.up()
     for i in range(40):
         page.wait_for_timeout(100)
         speed = page.evaluate("() => sys().registry.ofKind('earth')[0]?.body.speed ?? 99")
@@ -112,7 +120,8 @@ with sync_playwright() as p:
     page.keyboard.press('2')
     click(pile['x'], pile['y'], 2200)
     page.wait_for_timeout(900)
-    assert page.evaluate("() => window.count('metal')") == 1, labels()
+    # Je nach Lage der Körner schmilzt der Haufen zu einem oder zwei Metallklumpen.
+    assert page.evaluate("() => window.count('metal')") >= 1 and page.evaluate("() => window.count('sand')") == 0, labels()
     page.screenshot(path=str(OUTPUT / 'reaktion-metall.png'))
     print('Sand schmilzt zu Metall.', flush=True)
 
