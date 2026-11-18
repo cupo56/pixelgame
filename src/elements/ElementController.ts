@@ -9,6 +9,7 @@ import type { Player } from '../entities/Player.ts'
 import { progression } from '../progression/Progression.ts'
 import { ReactionSystem } from '../materials/ReactionSystem.ts'
 import { HudBar } from '../ui/HudBar.ts'
+import { WindMarker } from '../combos/WindMarker.ts'
 import { EarthMaterial } from '../materials/EarthMaterial.ts'
 import { FireMaterial } from '../materials/FireMaterial.ts'
 import { WaterMaterial } from '../materials/WaterMaterial.ts'
@@ -58,6 +59,7 @@ export class ElementController {
   private readonly aimGraphics: Phaser.GameObjects.Graphics
   private selected: ElementInfo = ELEMENTS[0]
   private heldCast?: { element: ChargedElement; pressedAt: number }
+  private readonly windMarker: WindMarker
 
   constructor(scene: Phaser.Scene, player: Player) {
     this.scene = scene
@@ -103,6 +105,7 @@ export class ElementController {
     scene.game.events.on(Phaser.Core.Events.BLUR, this.onBlur, this)
 
     this.aimGraphics = scene.add.graphics().setDepth(50)
+    this.windMarker = new WindMarker(scene, this.system)
     this.refreshHud()
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this)
   }
@@ -120,9 +123,12 @@ export class ElementController {
     const origin = this.player.aimAt(target, this.selected.color)
     const direction = target.clone().subtract(origin)
     if (direction.lengthSq() === 0) {
+      this.windMarker.update(false, origin, direction)
       return
     }
     direction.normalize()
+    // Luft: Erdblöcke im Windstoßkegel zeigen Klammern und Pfeil (nur Anzeige, lenkt nichts).
+    this.windMarker.update(this.selected.id === 'air', origin, direction)
     for (const attack of Object.values(this.attacks)) attack?.updateAim?.(origin, direction)
 
     this.drawAim(origin, direction, target)
@@ -342,6 +348,7 @@ export class ElementController {
     for (const attack of Object.values(this.attacks)) {
       attack?.destroy()
     }
+    this.windMarker.destroy()
     this.earthMaterial.destroy()
     this.fireMaterial.destroy()
     this.waterMaterial.destroy()

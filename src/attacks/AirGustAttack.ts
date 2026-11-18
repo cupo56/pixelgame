@@ -10,8 +10,9 @@ import { COMBAT } from '../config/combat.ts'
 import { AirTornadoAttack, type AirPose } from './AirTornadoAttack.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
-const RANGE_M = 7
-const HALF_ANGLE_RAD = (35 * Math.PI) / 180
+/** Reichweite und Halbwinkel des Windstoßes; auch die Windmarkierung zeichnet damit den Kegel. */
+export const RANGE_M = 7
+export const HALF_ANGLE_RAD = (35 * Math.PI) / 180
 const IMPULSE_NS = 140
 /** Rückstoß auf den Spieler (m/s): Windstoß nach unten gibt Auftrieb. */
 const RECOIL_MS = 3
