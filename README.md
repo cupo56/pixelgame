@@ -115,6 +115,22 @@ Die Elemente sind echte Stoffe mit Temperatur, Masse und Wärmeinhalt. Ein zentr
 
 Der einzige nicht-physikalische Wert ist `fireSolidCoupling` (Feuer wirkt auf Festkörper als anhaltende Flamme, nicht als einmaliges Energiepaket); alle anderen Größen (Verdampfungswärme, Dichten, Schwellen) sind real. Die reine Rechenlogik ist mit Vitest geprüft: `npm test`.
 
+## Element-Kombos
+
+Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt**: Luft ist der *Träger* (beschleunigt und schleudert jeden Stoff), Erde, Metall, Sand, Eis und Wasser sind die *Nutzlast*, Feuer und Wasser *veredeln* sie (heiß, nass, gefroren). Es gibt keine Tastenkombination: Die Kombo entsteht durch die Reihenfolge der Angriffe. Stellwerte stehen in `src/config/combos.ts`; Spec und Plan unter `docs/superpowers/`.
+
+| Kombo | Ablauf | Wirkung |
+| --- | --- | --- |
+| Wucht | Erdblock mit einem Luft-Windstoß abfeuern | Der Schaden folgt der kinetischen Energie (E / 2400 J, höchstens 60). Der bisherige Festwert bleibt Untergrenze. Schwere Blöcke treffen auch langsam hart. |
+| Meteor | Erdblock heben, mit Feuer auf mindestens 500 °C erhitzen, mit Windstoß beschleunigen | Beim Einschlag (ab 30 kJ) explodiert der glühende Block wie ein Feuerball, dessen Stärke aus der Glut folgt. Er behält 40 % seiner Übertemperatur; erst neue Wärme macht ihn wieder scharf. |
+| Hagel | Wasserstrahl, dann Windstoß durch die Tropfen | Tropfen in der halben Reichweite gefrieren im Flug zu Scherben. Treffer machen Gegner nass; ein Kältetreffer fesselt nasse Gegner. |
+| Steinhagel | Blöcke in einen Wirbel einfangen, dann Luft-Kurzklick zur Maus | Die Salve schleudert alle gefangenen Blöcke zur Maus (massenabhängiger Windschub, Wucht-Schaden); der Wirbel endet. Ohne gefangenen Block bleibt der Klick ein normaler Windstoß. |
+| Feuerwirbel | Feuerball in einen ausgewachsenen Wirbel schießen | Der Ball kreist mit, explodiert nicht und brennt über die Wirbeldauer ab (alle 300 ms 2 bis 6 Schaden an Gegnern im Wirbel). Gefangene Blöcke werden aufgeheizt. Mit Salve fliegt der Ball mit Rest-Wärme weiter. |
+
+**Nass und Kälte:** Wassertropfen und Wasserpeitsche machen Gegner 6 s lang nass (dunkleres Fell, Tropfenläufe, Anzeige „NASS“). Windstoß, Wirbel beim Einfangen und Eisscherben sind Kältetreffer: Ein nasser Gegner friert für 0,8 bis 1,6 s fest, danach schützt 3 s lang ein Frostschutz vor erneuter Fessel. Feuerexplosionen und glühende Blöcke trocknen nasse Gegner mit einer kleinen Dampfwolke.
+
+**Windmarkierung:** Bei gewähltem Luftelement zeigen Erdblöcke im Windstoßkegel vier Eckklammern und einen Pfeil, dessen Länge der erwarteten Austrittsgeschwindigkeit entspricht. Die Markierung zeigt nur, sie lenkt nichts.
+
 ## Browserprüfung
 
 `scripts/check-reactions.py` spielt die Reaktionsmatrix szenisch durch (Löschen, Eisfläche, Sand, Metall) und legt Screenshots in `artifacts` ab.

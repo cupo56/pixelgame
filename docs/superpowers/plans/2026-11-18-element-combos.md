@@ -286,6 +286,14 @@ Zeichnung: je Erdblock im Windstoßkegel (Reichweite und Halbwinkel aus `AirGust
 
 ---
 
+## Abweichungen bei der Umsetzung (Stand 2026-11-18)
+
+- **Task 2:** Zusätzliche Stellwerte `shardChillStrength` (0,5) und `vortexChillStrength` (0,6) in `config/combos.ts`. Der Wirbel kühlt **einmalig beim Einfangen** (kein wiederholter Treffer alle 700 ms, weil Gegner nur 0,7 bis 1,15 s im Wirbel bleiben). `steamOffEnemy` liegt in `materials/SteamEffect.ts`; auch glühendes **Metall** trocknet nasse Gegner.
+- **Task 3:** `detonate` ist eine **öffentliche Methode von `FireMaterial`**, keine Funktion in `explosion.ts` (Importzyklus vermieden). `ReactionSystem.heatArea` bekam einen optionalen Parameter `exclude`: Ohne ihn heizte sich der Meteor-Block durch die eigene Explosion über die Schmelztemperatur und wurde zu Metall. Signatur: `meteorImpact(system, rock, point, direct, scorch)`.
+- **Task 5:** Feuer wird **nicht** über `Orbit` des Tornados gefangen (dort werden Sensorkörper übersprungen, und der Gravitationsausgleich passt nicht zum Feuerball), sondern von `FireVortex` mit eigenem Zustand je Wirbel. `Fireball.captured`, `FireMaterial.capture/release/fizzle`; `expiry` ist nicht mehr `readonly`, weil `release` den Flugzeit-Timer ersetzt.
+- **Task 6:** `WindMarker(scene, system)` ohne `playerBody`; `RANGE_M` und `HALF_ANGLE_RAD` werden aus `AirGustAttack` exportiert.
+- **Noch offen:** alle „Browser:“-Schritte der Tasks 1 bis 6 und Task 7 (`scripts/check-combos.py`). Der Dev-Server wurde wegen knappem Arbeitsspeicher nicht gestartet; bis dahin sind die Kombos nur durch Typecheck, Vitest (78 Tests) und Build abgesichert.
+
 ## Selbstprüfung (durchgeführt)
 
 - **Spec-Abdeckung:** Wucht (Ziel 1) → T1; Nass und Kälte (Ziel 3) → T2; Meteor → T3; Hagel → T1/T2 (Bestand plus Kette); Steinhagel/Salve → T4; Feuerwirbel → T5; Windmarkierung (Ziel 4) → T6; Stellwerte (Ziel 5) → T1; Prüfung → T7. Entscheidungen des Bauleiters 1 → T1, 2 → T4, 3 → T2, 4 → T3, 5 → T5.
