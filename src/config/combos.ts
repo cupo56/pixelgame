@@ -13,6 +13,8 @@ export const COMBOS = {
   // Windschub auf Erdblöcke (bisher lokal in EarthMaterial).
   airBoostMs: 18,
   airMaxSpeedMs: 30,
+  /** Schwere Blöcke verlieren beim Windstoß wenig Tempo: Schub ∝ (Referenzmasse / Masse) hoch diesen Exponenten. */
+  airMassExponent: 0.125,
   /** Masse des 0,5-m-Referenzblocks (225 kg), auf die der Windschub bezogen ist; aus der Erddichte abgeleitet. */
   airReferenceMassKg: 0.5 ** 3 * REACTIONS.earthDensityKgM3,
 

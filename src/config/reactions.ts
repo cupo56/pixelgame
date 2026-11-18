@@ -50,7 +50,8 @@ export const REACTIONS = {
   puddleEvaporateMs: 12_000,
 
   // Erde → Sand: Nässeschwelle wächst mit der Oberfläche (kg pro m² Kantenlänge²).
-  sandWaterKgPerM2: 12,
+  // Spielabstraktion: Der kleine Block zerfällt am ersten Tropfen, der 1,5-m-Block nach 4 Tropfen.
+  sandWaterKgPerM2: 0.26,
   earthDensityKgM3: 1800,
   sandDensityKgM3: 1600,
   sandGrainsPerHalfMeterBlock: 10,
@@ -69,6 +70,11 @@ export const REACTIONS = {
    */
   fireSolidCoupling: 60,
   sandMeltC: 1500,
+  /**
+   * Spielabstraktion: Erdblöcke werden leicht zu Metall. Temperaturanstieg = Q · Faktor / Kantenlänge (m).
+   * Der kleine Block (0,5 m) schmilzt schon am kleinsten Feuerball, der 1,5-m-Block braucht im Spiel 3 bis 4 (Abstand und Abkühlung kosten Wärme).
+   */
+  earthMetalKmPerJ: 3.6e-3,
   /** Obergrenze für Festkörpertemperaturen (darüber würde Material verdampfen; hält Abkühlzeiten lesbar). */
   solidMaxC: 2500,
   metalDensityKgM3: 7800,

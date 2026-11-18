@@ -27,9 +27,10 @@ describe('wuchtDamage', () => {
 })
 
 describe('airBoostSpeedMs', () => {
-  it('entspricht dem bisherigen Windschub in pushWithAir', () => {
+  it('Referenzblock 18 m/s, der 1,5-m-Block verliert nur gut ein Drittel', () => {
     expect(airBoostSpeedMs(225, 1)).toBeCloseTo(18)
-    expect(airBoostSpeedMs(6075, 1)).toBeCloseTo(6)
+    expect(airBoostSpeedMs(6075, 1)).toBeCloseTo(18 * 27 ** -0.125)
+    expect(airBoostSpeedMs(6075, 1)).toBeGreaterThan(11)
     expect(airBoostSpeedMs(225, 0.5)).toBeCloseTo(9)
   })
 

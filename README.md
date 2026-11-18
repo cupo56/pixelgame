@@ -102,12 +102,12 @@ Die Elemente sind echte Stoffe mit Temperatur, Masse und Wärmeinhalt. Ein zentr
 | Feuer trifft Pfütze oder Eis | Pfützen verdampfen anteilig, Eis schmilzt zu Wasser. |
 | Wasser am Boden | Ruhende Tropfen sammeln sich zu Pfützen, die nach 12 s verdunsten. |
 | Luft trifft Wasser | Windstoß und Wirbelsturm tragen Tropfen mit und kühlen sie; bei 0 °C werden sie zu Eisscherben, Pfützen zu glatten Eisflächen. Auf Eis rutscht auch die Figur. Scherben zerspringen bei hartem Aufprall und schmelzen nach einigen Sekunden. |
-| Wasser trifft Erde | Der Block saugt sich voll (dunkelt ab) und zerfällt ab einer von der Oberfläche abhängigen Wassermenge zu Sand: ein kleiner Block nach etwa 20 Tropfen. |
+| Wasser trifft Erde | Der Block saugt sich voll (dunkelt ab) und zerfällt ab einer von der Oberfläche abhängigen Wassermenge zu Sand: ein kleiner Block schon am ersten Tropfen, der 1,5-m-Block nach etwa 4 Tropfen. |
 | Erdblöcke | Geworfene Blöcke bleiben 30 s liegen und verschmelzen dann mit dem Boden: sie sinken von unten ein, mit Rissen und Staub. Rollende Blöcke warten, bis sie ruhen. |
 | Sand | Körner bilden Haufen, bremsen Gegner, fliegen im Wind als Sandwolke und versinken nach 12 s Ruhe. |
 | Feuer trifft Sand | Die Explosion erhitzt die Körner; geschmolzene Körner verschmelzen zu einem Metallblock (Masse bleibt erhalten, Volumen folgt der Metalldichte). Ein geladener Feuerball reicht für einen kleinen Haufen. |
 | Metall | Dauerhaft (höchstens sechs Klumpen, der älteste versinkt), glüht nach Feuer und verbrennt Gegner bei Berührung. Feuerbälle prallen daran ab, Wasser verdampft auf heißem Metall und kühlt es. |
-| Feuer trifft Erde | Der Block glüht und verbrennt Gegner. Ein geladener Feuerball (oder mehrere schnelle Treffer, solange der Block glüht) bringt einen kleinen Block auf 1500 °C: er wird zu einem glühenden Metallklumpen. Glühende Blöcke verschwinden nicht. |
+| Feuer trifft Erde | Der Block glüht und verbrennt Gegner. Schon der kleinste Feuerball bringt einen kleinen Block auf 1500 °C: er wird zu einem glühenden Metallklumpen. Der dicke 1,5-m-Block braucht dafür 3 bis 4 Feuerbälle. Glühende Blöcke verschwinden nicht. |
 | Metall bändigen | Mit Metall (Taste 5) holt ein kurzer Klick alle Klumpen im Umkreis von 5 m: sie reißen sich los, fliegen spiralförmig zur Figur, verschmelzen glühend und rasten als acht Platten ein. Die Rüstung hat 25 Schutzpunkte, fängt Treffer vor dem Leben ab und birst bei 0. Rückruf nimmt sie mit, Absturz und Tod kosten sie. Die Bewegung der Figur bleibt mit Rüstung unverändert. |
 | Spitzen-Sphäre | Halten mit Rüstung zerlegt sie in 8 bis 24 kreisende Spitzen (3 Schaden beim Streifen); Loslassen schleudert die Hälfte als Fächer zur Maus und den Rest rundum (8 bis 14 Schaden). Spitzen bleiben in Gelände und Erdblöcken stecken und zerbröseln; das Metall ist verbraucht. |
 | Luft trifft Feuer | Der Windstoß beschleunigt den Feuerball und nährt ihn. |

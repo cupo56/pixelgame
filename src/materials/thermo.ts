@@ -56,6 +56,10 @@ export const grainPlan = (edgeM: number, freeSlots: number): GrainPlan => {
 export const solidHeatingK = (heatJ: number, falloff: number, massKg: number): number =>
   (heatJ * clamp01(falloff) * R.fireSolidCoupling) / (R.solidHeatCapacityJPerKgK * Math.max(0.001, massKg))
 
+/** Erwärmung eines Erdblocks durch Feuer: nimmt mit der Kantenlänge ab (nicht mit der Masse), damit dicke Blöcke trotzdem schmelzen. */
+export const earthHeatingK = (heatJ: number, edgeM: number): number =>
+  (heatJ * R.earthMetalKmPerJ) / Math.max(0.1, edgeM)
+
 /** Kantenlänge eines Metallwürfels aus der verschmolzenen Sandmasse. */
 export const metalEdgeM = (sandMassKg: number): number => Math.cbrt(sandMassKg / R.metalDensityKgM3)
 

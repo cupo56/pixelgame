@@ -316,10 +316,66 @@ def scene_budget_marker(browser: Browser) -> None:
     page.close()
 
 
+def scene_erde_leicht(browser: Browser) -> None:
+    """Metall und Sand sind leicht zu erzeugen; der dicke Block lässt sich weit schleudern."""
+    page, errors = new_game(browser)
+    me = ev(page, '() => window.player()')
+    fire = """([x, y]) => sys().materials.fire.spawn({ x: x - 70, y }, { x: 1, y: 0, length: () => 1 }, %s)""" % 0.3e6
+
+    # Kleiner Block: schon der kleinste Feuerball macht Metall.
+    ev(page, '([x, y]) => { window.small = makeRock(x + 140, y - 10, 0.5); }', [me['x'], me['y']])
+    page.wait_for_timeout(700)
+    pos = ev(page, '() => ({ x: small.body.position.x, y: small.body.position.y })')
+    ev(page, fire, [pos['x'], pos['y']])
+    page.wait_for_timeout(900)
+    assert ev(page, "() => window.count('earth')") == 0 and ev(page, "() => window.count('metal')") == 1,         ev(page, "() => ({ earth: count('earth'), metal: count('metal'), fire: count('fire') })")
+    print('Metall: ein kleinster Feuerball macht den kleinen Block zu Metall.', flush=True)
+
+    # Dicker Block: 3 bis 4 kleinste Feuerbälle.
+    ev(page, 'window.clearWorld')
+    ev(page, '([x, y]) => { window.thick = makeRock(x + 160, y - 30, 1.5); }', [me['x'], me['y']])
+    page.wait_for_timeout(900)
+    pos = ev(page, '() => ({ x: thick.body.position.x, y: thick.body.position.y })')
+    balls = 0
+    while balls < 6 and ev(page, "() => window.count('earth')") == 1:
+        ev(page, fire, [pos['x'], pos['y']])
+        balls += 1
+        page.wait_for_timeout(700)
+    assert ev(page, "() => window.count('metal')") == 1, ev(page, "() => ({ earth: count('earth'), metal: count('metal') })")
+    assert 3 <= balls <= 4, f'{balls} Feuerbälle'
+    print(f'Metall: dicker Block nach {balls} kleinsten Feuerbällen.', flush=True)
+
+    # Dicker Block: 3 bis 4 Tropfen zu Sand.
+    ev(page, 'window.clearWorld')
+    ev(page, '([x, y]) => { window.thick = makeRock(x + 160, y - 30, 1.5); }', [me['x'], me['y']])
+    page.wait_for_timeout(900)
+    pos = ev(page, '() => ({ x: thick.body.position.x, y: thick.body.position.y })')
+    drops = 0
+    while drops < 8 and ev(page, "() => window.count('earth')") == 1:
+        ev(page, '([x, y]) => sys().materials.water.spawnDroplet(x, y - 70, Math.PI / 2, 8)', [pos['x'], pos['y']])
+        drops += 1
+        page.wait_for_timeout(450)
+    page.wait_for_timeout(300)
+    assert ev(page, "() => window.count('sand')") >= 4, ev(page, "() => ({ earth: count('earth'), sand: count('sand') })")
+    assert 3 <= drops <= 5, f'{drops} Tropfen'
+    print(f'Sand: dicker Block nach {drops} Tropfen.', flush=True)
+
+    # Dicker Block: der Windstoß schleudert ihn weit.
+    ev(page, 'window.clearWorld')
+    ev(page, '([x, y]) => { window.thick = makeRock(x + 160, y - 30, 1.5); }', [me['x'], me['y']])
+    page.wait_for_timeout(900)
+    ev(page, '() => gustAt(thick.body, thick.body.position.x + 300, thick.body.position.y - 20)')
+    speed_ms = ev(page, '() => Math.hypot(thick.body.velocity.x, thick.body.velocity.y) * 60 / 32')
+    assert speed_ms > 9, f'{speed_ms:.1f} m/s'
+    print(f'Luft: dicker Block fliegt mit {speed_ms:.1f} m/s los.', flush=True)
+    assert errors == [], errors
+    page.close()
+
+
 def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        for scene in (scene_wucht_meteor, scene_nass_kaelte, scene_salve, scene_feuerwirbel, scene_budget_marker):
+        for scene in (scene_wucht_meteor, scene_nass_kaelte, scene_salve, scene_feuerwirbel, scene_budget_marker, scene_erde_leicht):
             scene(browser)
         print('Alle Kombos geprüft.', flush=True)
         browser.close()

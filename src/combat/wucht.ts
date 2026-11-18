@@ -13,10 +13,10 @@ export const wuchtDamage = (massKg: number, speedMs: number, floor: number): num
 }
 
 /**
- * Windschub in m/s auf einen Block: Fläche zu Masse, also schwere Blöcke bekommen weniger.
+ * Windschub in m/s auf einen Block: schwere Blöcke bekommen weniger, aber nur schwach abnehmend.
  * Bezogen auf den 0,5-m-Referenzblock (225 kg), skaliert mit der Windstärke (0 bis 1).
  */
 export const airBoostSpeedMs = (massKg: number, strength: number): number => {
   if (!Number.isFinite(massKg) || !Number.isFinite(strength) || massKg <= 0 || strength <= 0) return 0
-  return COMBOS.airBoostMs * Math.cbrt(COMBOS.airReferenceMassKg / massKg) * strength
+  return COMBOS.airBoostMs * (COMBOS.airReferenceMassKg / massKg) ** COMBOS.airMassExponent * strength
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { REACTIONS as R } from '../config/reactions.ts'
 import {
-  approachAmbient, coolWater, fireChargeFraction, fireHeatForCharge, glowFraction, grainPlan, heatWater,
+  approachAmbient, coolWater, earthHeatingK, fireChargeFraction, fireHeatForCharge, glowFraction, grainPlan, heatWater,
   mergeTarget, metalEdgeM, puddleWidthPx, quenchFire, sandWettingThresholdKg, solidHeatingK, windFeedHeat,
 } from './thermo.ts'
 
@@ -75,12 +75,12 @@ describe('Feuer und Wasser', () => {
 
 describe('Erde, Sand, Metall', () => {
   it('Nässeschwelle wächst mit der Oberfläche', () => {
-    expect(sandWettingThresholdKg(0.5)).toBe(3)
-    expect(sandWettingThresholdKg(1.5)).toBe(27)
+    expect(sandWettingThresholdKg(1.5)).toBeCloseTo(9 * sandWettingThresholdKg(0.5))
   })
 
-  it('der kleine Block zerfällt nach 20 Tropfen', () => {
-    expect(Math.ceil(sandWettingThresholdKg(0.5) / R.dropletMassKg)).toBe(20)
+  it('der kleine Block zerfällt am ersten Tropfen, der dicke nach 4', () => {
+    expect(Math.ceil(sandWettingThresholdKg(0.5) / R.dropletMassKg)).toBe(1)
+    expect(Math.ceil(sandWettingThresholdKg(1.5) / R.dropletMassKg)).toBe(4)
   })
 
   it('Kornplan: 10 Körner für 0,5 m, Deckel 60, mindestens 4 bei vollem Budget, Masse erhalten', () => {
@@ -97,9 +97,14 @@ describe('Erde, Sand, Metall', () => {
     expect(solidHeatingK(R.fireHeatMinJ, 1, 22.5)).toBeLessThan(R.sandMeltC)
   })
 
-  it('geladener Volltreffer macht einen 0,5-m-Erdblock zu Metall, ungeladener nicht', () => {
-    expect(R.ambientC + solidHeatingK(R.fireHeatMaxJ, 1, 225)).toBeGreaterThanOrEqual(R.sandMeltC)
-    expect(R.ambientC + solidHeatingK(R.fireHeatMinJ, 1, 225)).toBeLessThan(R.sandMeltC)
+  it('schon der kleinste Feuerball macht einen 0,5-m-Erdblock zu Metall', () => {
+    expect(R.ambientC + earthHeatingK(R.fireHeatMinJ, 0.5)).toBeGreaterThanOrEqual(R.sandMeltC)
+  })
+
+  it('der 1,5-m-Block schmilzt nicht an einem kleinsten Feuerball, aber an einer Handvoll', () => {
+    const perBall = earthHeatingK(R.fireHeatMinJ, 1.5)
+    expect(R.ambientC + perBall).toBeLessThan(R.sandMeltC)
+    expect(R.ambientC + 3 * perBall).toBeGreaterThanOrEqual(R.sandMeltC)
   })
 
   it('Metallkante aus Sandmasse über Metalldichte', () => {

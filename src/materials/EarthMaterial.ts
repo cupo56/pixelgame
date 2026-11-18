@@ -12,7 +12,7 @@ import { dust } from '../effects/particles.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { hitStopOnce, impactRing } from '../effects/impact.ts'
 import { screenShake } from '../effects/juice.ts'
-import { approachAmbient, glowFraction, sandWettingThresholdKg, solidHeatingK } from './thermo.ts'
+import { approachAmbient, earthHeatingK, glowFraction, sandWettingThresholdKg } from './thermo.ts'
 import { mix } from './MetalMaterial.ts'
 import { steamOffEnemy } from './SteamEffect.ts'
 import type { Substance } from './Substance.ts'
@@ -127,7 +127,7 @@ export class EarthMaterial {
   /** Hitze lässt Erde glühen; ab der Schmelztemperatur wird der Block zu einem Metallklumpen. */
   private heat(rock: Rock, heatJ: number): void {
     if (!this.rocks.has(rock)) return
-    const deltaK = solidHeatingK(heatJ, 1, rock.massKg)
+    const deltaK = earthHeatingK(heatJ, rock.edgeM)
     rock.temperatureC = Math.min(R.solidMaxC, rock.temperatureC + deltaK)
     // Neue Wärme macht einen verbrauchten Meteor wieder scharf.
     if (deltaK > 0) rock.meteorSpent = false
