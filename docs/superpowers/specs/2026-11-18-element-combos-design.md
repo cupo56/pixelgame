@@ -66,7 +66,7 @@ Wichtig für den Umfang: Vieles ist bereits emergent möglich. Diese Spec ergän
 2. **Salve per Luft-Kurzklick:** Existiert ein eigener Wirbel mit mindestens einem gefangenen Block, löst der Windstoß-Klick eine Salve aus statt eines normalen Windstoßes. Er nutzt dafür die vorhandene Windbeschleunigung (`applyWind`, Stärke 1) und braucht keine neue Eingabe.
 3. **Frostschutz:** Nach dem Auftauen ist ein Gegner 3 s gegen eine neue Eisfessel immun.
 4. **Meteor verbraucht Wärme:** Nach dem Einschlag behält der Block 40 % seiner Übertemperatur; ein weiterer Meteor braucht erneute Wärmezufuhr (siehe Meteor, Wirkung).
-5. **Feuer im Wirbel:** höchstens ein Feuerball je Wirbel; er erlischt ohne Explosion, wenn Wirbel oder Q enden.
+5. **Feuer im Wirbel:** beliebig viele Feuerbälle je Wirbel (wie Blöcke); jeder erlischt ohne Explosion, wenn Wirbel oder Q enden.
 
 ## Die vier Kombos
 

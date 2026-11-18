@@ -221,7 +221,7 @@ export const vortexRockHeatJ = (qJ: number): number                             
 export class FireVortex { /* Capture-Handler für 'fire'; update(tornado, dtMs): Tick-Schaden + Blockheizung; release(direction?) */ }
 // FireMaterial: Fireball.captured: boolean (true → explode() kehrt sofort zurück, Maske ohne feste Körper)
 ```
-`AirTornadoAttack`: `canCapture` gilt jetzt auch für Feuer; **höchstens ein Feuerball je Wirbel**; `Orbit` bekommt `kind: 'rock' | 'enemy' | 'fire'` statt `rock: boolean`, weil der Gravitationsausgleich (`if (orbit.rock) nextVY -= …`) nur für Blöcke gilt (der Feuerball hat keine Gravitation).
+`AirTornadoAttack`: `canCapture` gilt jetzt auch für Feuer; **beliebig viele Feuerbälle je Wirbel**; `Orbit` bekommt `kind: 'rock' | 'enemy' | 'fire'` statt `rock: boolean`, weil der Gravitationsausgleich (`if (orbit.rock) nextVY -= …`) nur für Blöcke gilt (der Feuerball hat keine Gravitation).
 
 - [ ] **Step 1: Tests schreiben** (`fireVortexMath.test.ts`)
 ```ts

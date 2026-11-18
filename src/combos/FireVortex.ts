@@ -37,12 +37,12 @@ const TICK_COLOR = 0xff8a1f
  * Feuerwirbel: Ein Feuerball im Wirbel wird gefangen und kreist, statt zu explodieren. Sein Wärmeinhalt Q
  * sinkt linear über die Restdauer des Wirbels; solange er brennt, schaden Ticks den Gegnern im Wirbel und
  * heizen die gefangenen Blöcke (Feuerwirbel plus Steinhagel ergibt eine Meteor-Salve).
- * Pro Wirbel höchstens ein Feuerball. Zustand je Wirbel über dessen Schlüsselobjekt.
+ * Beliebig viele Feuerbälle pro Wirbel, wie bei den Erdblöcken. Zustand je Wirbel über dessen Schlüsselobjekt.
  */
 export class FireVortex {
   private readonly scene: Phaser.Scene
   private readonly system: ReactionSystem
-  private readonly states = new Map<object, FireState>()
+  private readonly states = new Map<object, FireState[]>()
 
   constructor(scene: Phaser.Scene, system: ReactionSystem) {
     this.scene = scene
@@ -53,63 +53,67 @@ export class FireVortex {
   update(key: object, geometry: VortexGeometry, dtMs: number, rocks: readonly MatterJS.BodyType[]): void {
     const fire = this.system.materials.fire
     if (!fire) return
-    let state = this.states.get(key)
-    // Von außen entfernt (z. B. von Wasser gelöscht): Zustand verwerfen.
-    if (state && !this.system.registry.get(state.fireball.body)) {
+    // Von außen entfernte Feuerbälle (z. B. von Wasser gelöscht) verwerfen.
+    const alive = (this.states.get(key) ?? []).filter((s) => this.system.registry.get(s.fireball.body))
+    if (geometry.open) alive.push(...this.captureAll(geometry, alive))
+    if (alive.length === 0) {
       this.states.delete(key)
-      state = undefined
-    }
-    state ??= geometry.open ? this.tryCapture(key, geometry) : undefined
-    if (!state) return
-    state.elapsedMs += dtMs
-    const q = vortexHeatJ(state.q0, state.elapsedMs, state.durationMs)
-    if (q <= 0) {
-      this.states.delete(key)
-      fire.fizzle(state.fireball)
       return
     }
-    state.fireball.heatJ = q
-    this.steer(state, geometry, dtMs)
-    state.tickMs += dtMs
-    while (state.tickMs >= COMBOS.fireVortexTickMs) {
-      state.tickMs -= COMBOS.fireVortexTickMs
-      this.tick(state, q, geometry, rocks)
+    const remaining: FireState[] = []
+    for (const state of alive) {
+      state.elapsedMs += dtMs
+      const q = vortexHeatJ(state.q0, state.elapsedMs, state.durationMs)
+      if (q <= 0) {
+        fire.fizzle(state.fireball)
+        continue
+      }
+      state.fireball.heatJ = q
+      this.steer(state, geometry, dtMs)
+      state.tickMs += dtMs
+      while (state.tickMs >= COMBOS.fireVortexTickMs) {
+        state.tickMs -= COMBOS.fireVortexTickMs
+        this.tick(state, q, geometry, rocks)
+      }
+      remaining.push(state)
     }
+    if (remaining.length > 0) this.states.set(key, remaining)
+    else this.states.delete(key)
   }
 
-  /** Salve: Der Feuerball fliegt mit seinem Rest-Q als normaler Feuerball in Schussrichtung weiter. */
+  /** Salve: Alle Feuerbälle fliegen mit ihrem Rest-Q als normale Feuerbälle in Schussrichtung weiter. */
   release(key: object, direction: Phaser.Math.Vector2): void {
-    const state = this.states.get(key)
-    if (!state) return
+    const list = this.states.get(key)
+    if (!list) return
     this.states.delete(key)
-    this.system.materials.fire?.release(state.fireball, direction)
+    for (const state of list) this.system.materials.fire?.release(state.fireball, direction)
   }
 
-  /** Wirbel endet oder wird abgebrochen: der Feuerball erlischt ohne Explosion. */
+  /** Wirbel endet oder wird abgebrochen: alle Feuerbälle erlöschen ohne Explosion. */
   end(key: object): void {
-    const state = this.states.get(key)
-    if (!state) return
+    const list = this.states.get(key)
+    if (!list) return
     this.states.delete(key)
-    this.system.materials.fire?.fizzle(state.fireball)
+    for (const state of list) this.system.materials.fire?.fizzle(state.fireball)
   }
 
-  private tryCapture(key: object, geometry: VortexGeometry): FireState | undefined {
+  /** Fängt jeden freien Feuerball im Wirbelvolumen. */
+  private captureAll(geometry: VortexGeometry, known: readonly FireState[]): FireState[] {
     const fire = this.system.materials.fire
-    if (!fire) return undefined
+    if (!fire) return []
+    const added: FireState[] = []
     for (const substance of this.system.registry.ofKind('fire')) {
       const fireball = substance as Fireball
-      if (fireball.captured) continue
+      if (fireball.captured || known.some((s) => s.fireball === fireball)) continue
       const dx = (fireball.body.position.x - geometry.x) / (geometry.radius + 12)
       const dy = (fireball.body.position.y - geometry.centerY) / (geometry.height * 0.55)
       if (dx * dx + dy * dy > 1 || !fire.capture(fireball)) continue
-      const state: FireState = {
+      added.push({
         fireball, q0: fireball.heatJ, elapsedMs: 0, durationMs: Math.max(1, geometry.remainingMs),
         angle: Math.atan2(dy, dx), tickMs: 0,
-      }
-      this.states.set(key, state)
-      return state
+      })
     }
-    return undefined
+    return added
   }
 
   /** Der Feuerball hat keine Gravitation: eine weiche Federführung zur Umlaufbahn genügt. */
