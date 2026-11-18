@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { COMBOS } from '../config/combos.ts'
 import { REACTIONS as R } from '../config/reactions.ts'
 import { solidHeatingK } from '../materials/thermo.ts'
-import { vortexHeatJ, vortexRockHeatJ, vortexTickDamage } from './fireVortexMath.ts'
+import { vortexFireIntensity, vortexHeatJ, vortexRockHeatJ, vortexTickDamage } from './fireVortexMath.ts'
 
 const Q = R.fireHeatMaxJ
 
@@ -59,5 +59,18 @@ describe('Blockheizung im Feuerwirbel', () => {
 
   it('ein kurzer Wirbel (1600 ms) allein reicht nicht', () => {
     expect(heatedTemperature(1600)).toBeLessThan(R.earthGlowC)
+  })
+})
+
+describe('vortexFireIntensity', () => {
+  it('ohne Feuerball 0', () => {
+    expect(vortexFireIntensity([])).toBe(0)
+  })
+  it('stärkster Feuerball bestimmt die Glut', () => {
+    expect(vortexFireIntensity([{ q: 250, q0: 1000 }, { q: 600, q0: 1000 }])).toBeCloseTo(0.6)
+  })
+  it('bleibt in 0 bis 1', () => {
+    expect(vortexFireIntensity([{ q: 2000, q0: 1000 }])).toBe(1)
+    expect(vortexFireIntensity([{ q: 5, q0: 0 }])).toBe(0)
   })
 })

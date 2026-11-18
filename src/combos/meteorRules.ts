@@ -24,3 +24,11 @@ export const meteorCharge = (tempC: number): number => glowFraction(tempC, R.ear
 /** Der Block behält nach dem Einschlag einen Teil seiner Übertemperatur, nie weniger als die Umgebung. */
 export const afterMeteorTemperature = (tempC: number): number =>
   Math.max(R.ambientC, R.ambientC + COMBOS.meteorHeatRetention * (tempC - R.ambientC))
+
+/**
+ * Würde der Block beim nächsten Einschlag explodieren? Steuert die Funken- und Rauchschleppe im Flug,
+ * damit der Spieler sieht, welcher Block zum Meteor geworden ist.
+ */
+export const isMeteorArmed = (temperatureC: number, massKg: number, speedMs: number, spent: boolean): boolean =>
+  Number.isFinite(massKg) && Number.isFinite(speedMs) &&
+  isMeteorImpact({ temperatureC, energyJ: 0.5 * massKg * speedMs * speedMs, spent, otherIsPlayer: false, otherIsSensor: false })

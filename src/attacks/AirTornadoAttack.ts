@@ -5,15 +5,20 @@ import { chillEnemy } from '../combat/status.ts'
 import { FireVortex } from '../combos/FireVortex.ts'
 import { GRAVITY_MS2, PHYSICS_FPS, metersPerSecondToMatter, metersToPixels } from '../config/physics.ts'
 import { damageEnemy, holdEnemyInWind, isEnemy } from '../combat/damage.ts'
-import { burst } from '../effects/particles.ts'
+import { EMBER_COLORS, burst, coneBurst } from '../effects/particles.ts'
+import { Trails } from '../effects/Trails.ts'
+import { mix } from '../materials/MetalMaterial.ts'
 import { screenShake } from '../effects/juice.ts'
-import { impactRing } from '../effects/impact.ts'
+import { impactRing, shockwaveRing } from '../effects/impact.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const CHARGE_MS = 2000
 const MAX_STEP = metersToPixels(0.6)
 const COLORS = [0xf1ffff, 0xcfe9f2, 0x8fc4d6]
 const DT = 1 / PHYSICS_FPS
+/** Feuerwirbel: Luftfarben werden zu diesen Glutfarben (hell bis dunkel, wie COLORS). */
+const FIRE_COLORS = [0xffe9a0, 0xff9a1f, 0xd6360b]
+const VOLLEY_TRAIL = { color: 0xe9ffff, widthPx: 4, lifeMs: 260 }
 
 export interface AirPose {
   center: Phaser.Math.Vector2
@@ -133,13 +138,21 @@ export class AirTornadoAttack {
     const tornado = [...this.tornadoes].find((candidate) => [...candidate.captured.values()].some((orbit) => orbit.rock))
     if (!tornado) return false
     let fired = 0
+    const trails = Trails.of(this.scene)
     for (const [body, orbit] of [...tornado.captured]) {
       this.releaseBody(tornado, body, orbit, false)
       if (!orbit.rock || fired >= COMBOS.volleyMaxBodies) continue
       // Die Umlaufbewegung wird verworfen, damit der Block genau zur Maus fliegt.
       this.scene.matter.body.setVelocity(body, { x: 0, y: 0 })
-      if (this.system.applyWind(body, direction, 1, 'gust')) fired++
+      if (this.system.applyWind(body, direction, 1, 'gust')) {
+        fired++
+        trails.follow(body, { ...VOLLEY_TRAIL, widthPx: Math.max(3, this.extent(body) * 0.7) }, 450)
+      }
     }
+    // Der Wirbel entlädt sich: Druckring am Kern und Luftstreifen in Schussrichtung.
+    const coreY = tornado.y - tornado.height * 0.53
+    shockwaveRing(this.scene, tornado.x, coreY, tornado.radius * 0.5, tornado.radius * 1.8, 260, this.fireVortex.intensity(tornado) > 0 ? FIRE_COLORS[1] : COLORS[0])
+    coneBurst(this.scene, tornado.x, coreY, Math.atan2(direction.y, direction.x), 0.3, COLORS, 26, 320)
     // Ein Feuerball im Wirbel fliegt mit Rest-Q als normaler Feuerball in Schussrichtung weiter.
     this.fireVortex.release(tornado, direction)
     burst(this.scene, tornado.x, tornado.y - tornado.height * 0.4, COLORS, 18, 95)
@@ -360,13 +373,16 @@ export class AirTornadoAttack {
     const alpha = Math.min(1, (tornado.duration - tornado.elapsed) / 260)
     const height = tornado.height * growth
     const back = tornado.back.clear(), front = tornado.front.clear()
+    // Feuerwirbel: Farben glühen mit dem Wärmeinhalt der gefangenen Feuerbälle.
+    const fire = this.fireVortex.intensity(tornado)
+    const tint = (i: number) => fire > 0 ? mix(COLORS[i], FIRE_COLORS[i], Math.min(1, 0.45 + fire * 0.55)) : COLORS[i]
     const silhouette: Phaser.Math.Vector2[] = []
     for (const side of [-1, 1]) for (let j = 0; j <= 12; j++) {
       const t = side < 0 ? j / 12 : 1 - j / 12
       const radius = (7 + (tornado.radius - 7) * t ** 0.7) * growth
       silhouette.push(new Phaser.Math.Vector2(tornado.x + side * radius, tornado.y - t * height))
     }
-    back.fillStyle(0x9bbdc6, alpha * 0.12).fillPoints(silhouette, true)
+    back.fillStyle(fire > 0 ? mix(0x9bbdc6, 0xff6a1a, 0.4 + fire * 0.4) : 0x9bbdc6, alpha * (0.12 + fire * 0.1)).fillPoints(silhouette, true)
     back.fillStyle(0x102b35, alpha * 0.22).fillEllipse(tornado.x, tornado.y - 1, tornado.radius * 1.4, 9)
     for (let strand = 0; strand < 6; strand++) {
       let previous: { x: number; y: number } | undefined
@@ -376,7 +392,7 @@ export class AirTornadoAttack {
         const point = { x: tornado.x + Math.cos(a) * radius, y: tornado.y - t * height + Math.sin(a) * radius * 0.15 }
         if (previous) {
           const g = Math.sin(a) > 0 ? front : back
-          g.lineStyle(strand % 2 ? 1 : 2, COLORS[strand % 3], alpha * (Math.sin(a) > 0 ? 0.7 : 0.25))
+          g.lineStyle(strand % 2 ? 1 : 2, tint(strand % 3), alpha * (Math.sin(a) > 0 ? 0.7 : 0.25))
             .lineBetween(previous.x, previous.y, point.x, point.y)
         }
         previous = point
@@ -386,8 +402,37 @@ export class AirTornadoAttack {
       const t = (i / 36 + tornado.elapsed * 0.0006) % 1
       const a = tornado.phase * 1.4 + i * 2.4, r = (8 + t * tornado.radius) * growth
       const g = Math.sin(a) > 0 ? front : back
-      g.fillStyle(i % 3 ? 0xc6dce1 : 0xbfae90, alpha * (1 - t) * 0.8)
+      g.fillStyle(fire > 0 ? EMBER_COLORS[i % 3] : i % 3 ? 0xc6dce1 : 0xbfae90, alpha * (1 - t) * 0.8)
         .fillRect(tornado.x + Math.cos(a) * r, tornado.y - t * height, 2, 2)
+    }
+    if (fire > 0) this.drawFireVortex(tornado, height, growth, alpha, fire)
+  }
+
+  /** Funken an den Rändern und Hitzeflimmern über dem Kern des Feuerwirbels. */
+  private drawFireVortex(tornado: Tornado, height: number, growth: number, alpha: number, fire: number): void {
+    const front = tornado.front
+    const sparks = Math.round(8 + fire * 14)
+    for (let i = 0; i < sparks; i++) {
+      const t = (i * 0.173 + tornado.elapsed * 0.0011) % 1
+      const side = i % 2 ? 1 : -1
+      const radius = (7 + (tornado.radius - 7) * t ** 0.7) * growth
+      const flicker = Math.sin(tornado.phase * 3 + i * 1.9) * 3
+      front.fillStyle(EMBER_COLORS[i % 3], alpha * (1 - t * 0.7))
+        .fillRect(tornado.x + side * (radius + 2 + flicker), tornado.y - t * height - (1 - t) * 4, 1 + (i % 2), 1 + (i % 2))
+    }
+    // Flimmern: blasse, wellige Linien steigen über der Spitze auf und vergehen.
+    const top = tornado.y - height
+    for (let line = 0; line < 4; line++) {
+      const rise = (tornado.elapsed * 0.03 + line * 9) % 36
+      const y = top - rise
+      const width = tornado.radius * (0.9 - rise / 60)
+      let previous: { x: number; y: number } | undefined
+      for (let i = 0; i <= 10; i++) {
+        const x = tornado.x - width + (i / 10) * width * 2
+        const point = { x, y: y + Math.sin(i * 1.3 + tornado.phase * 2 + line) * 1.5 }
+        if (previous) front.lineStyle(1, 0xfff1c8, alpha * fire * 0.28 * (1 - rise / 36)).lineBetween(previous.x, previous.y, point.x, point.y)
+        previous = point
+      }
     }
   }
 }

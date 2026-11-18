@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { REACTIONS as R } from '../config/reactions.ts'
-import { afterMeteorTemperature, isMeteorImpact, meteorCharge, type MeteorImpactInput } from './meteorRules.ts'
+import { afterMeteorTemperature, isMeteorArmed, isMeteorImpact, meteorCharge, type MeteorImpactInput } from './meteorRules.ts'
 
 const ok: MeteorImpactInput = { temperatureC: 600, energyJ: 40_000, spent: false, otherIsPlayer: false, otherIsSensor: false }
 
@@ -47,5 +47,22 @@ describe('afterMeteorTemperature', () => {
     expect(afterMeteorTemperature(R.ambientC)).toBe(R.ambientC)
     expect(afterMeteorTemperature(700)).toBeLessThan(700)
     expect(afterMeteorTemperature(0)).toBe(R.ambientC)
+  })
+})
+
+describe('isMeteorArmed', () => {
+  // 0,5-m-Block: 225 kg. 30 kJ verlangen v ≥ √(2·30000/225) ≈ 16,3 m/s.
+  it('glühend und schnell genug: Schleppe an', () => {
+    expect(isMeteorArmed(800, 225, 17, false)).toBe(true)
+  })
+  it('zu langsam für die Einschlagsenergie: keine Schleppe', () => {
+    expect(isMeteorArmed(800, 225, 16, false)).toBe(false)
+  })
+  it('kalt oder verbraucht: keine Schleppe', () => {
+    expect(isMeteorArmed(R.earthGlowC - 1, 225, 25, false)).toBe(false)
+    expect(isMeteorArmed(800, 225, 25, true)).toBe(false)
+  })
+  it('ungültige Zahlen: keine Schleppe', () => {
+    expect(isMeteorArmed(800, Number.NaN, 25, false)).toBe(false)
   })
 })

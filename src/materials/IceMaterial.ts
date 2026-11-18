@@ -8,6 +8,7 @@ import { chillEnemy } from '../combat/status.ts'
 import { drawIceSheet, drawIceShard, fadeOut } from '../effects/decals.ts'
 import { burst } from '../effects/particles.ts'
 import { impactRing } from '../effects/impact.ts'
+import { Trails } from '../effects/Trails.ts'
 import { approachAmbient } from './thermo.ts'
 import { steamCloud } from './SteamEffect.ts'
 import type { Substance } from './Substance.ts'
@@ -15,6 +16,8 @@ import type { ReactionSystem } from './ReactionSystem.ts'
 import type { PuddleState } from './Puddle.ts'
 
 const SHARD_RADIUS_M = 0.08
+/** Ab dieser Geschwindigkeit gilt ein gefrierender Tropfen als Hagelkorn im Flug. */
+const HAIL_STREAK_MIN_SPEED_MS = 2
 const SHEET_HEIGHT_PX = 3
 export const ICE_COLORS = [0xe5fcff, 0x9edfff, 0x60a8d6]
 
@@ -82,7 +85,11 @@ export class IceMaterial {
     }
     this.shards.add(shard)
     this.system.registry.register(shard)
-    burst(this.scene, x, y, ICE_COLORS, 6, 40)
+    // Gefrieren im Flug (Hagel): heller Funke und ein kurzer Windstreifen hinter der Scherbe.
+    const trails = Trails.of(this.scene)
+    const inFlight = matterToMetersPerSecond(Math.hypot(velocity.x, velocity.y)) >= HAIL_STREAK_MIN_SPEED_MS
+    trails.emitFrost(x, y, inFlight ? 5 : 3)
+    if (inFlight) trails.follow(body, { color: 0xe5fcff, widthPx: 2, lifeMs: 140 }, 180)
     return shard
   }
 

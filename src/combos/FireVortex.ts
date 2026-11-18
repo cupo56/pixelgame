@@ -5,7 +5,7 @@ import { impactRing } from '../effects/impact.ts'
 import type { Fireball } from '../materials/FireMaterial.ts'
 import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 import { steamOffEnemy } from '../materials/SteamEffect.ts'
-import { vortexHeatJ, vortexRockHeatJ, vortexTickDamage } from './fireVortexMath.ts'
+import { vortexFireIntensity, vortexHeatJ, vortexRockHeatJ, vortexTickDamage } from './fireVortexMath.ts'
 
 /** Geometrie eines Wirbels in Pixeln, wie ihn `AirTornadoAttack` je Frame übergibt. */
 export interface VortexGeometry {
@@ -79,6 +79,11 @@ export class FireVortex {
     }
     if (remaining.length > 0) this.states.set(key, remaining)
     else this.states.delete(key)
+  }
+
+  /** Glut des Wirbels 0 bis 1 für die Darstellung (0 ohne Feuerball). */
+  intensity(key: object): number {
+    return vortexFireIntensity((this.states.get(key) ?? []).map((s) => ({ q: s.fireball.heatJ, q0: s.q0 })))
   }
 
   /** Salve: Alle Feuerbälle fliegen mit ihrem Rest-Q als normale Feuerbälle in Schussrichtung weiter. */

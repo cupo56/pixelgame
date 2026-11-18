@@ -7,7 +7,8 @@ import { PIXELS_PER_METER, matterToMetersPerSecond, metersPerSecondToMatter } fr
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { airBoostSpeedMs, wuchtDamage } from '../combat/wucht.ts'
 import { meteorImpact } from '../combos/Meteor.ts'
-import { isMeteorImpact } from '../combos/meteorRules.ts'
+import { isMeteorArmed, isMeteorImpact } from '../combos/meteorRules.ts'
+import { Trails } from '../effects/Trails.ts'
 import { dust } from '../effects/particles.ts'
 import { rockStyle } from '../earth/rockShape.ts'
 import { drawRockSkin } from '../earth/rockSkin.ts'
@@ -77,9 +78,25 @@ export class EarthMaterial {
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.draw, this)
   }
 
+  /** Ein Block, der beim Einschlag explodieren würde, zieht Glutschleppe, Funken und Rauch hinter sich her. */
+  private meteorTrail(rock: Rock): void {
+    if (rock.inTornado) return
+    const speedMs = matterToMetersPerSecond(Math.hypot(rock.body.velocity.x, rock.body.velocity.y))
+    if (!isMeteorArmed(rock.temperatureC, rock.body.mass, speedMs, rock.meteorSpent)) return
+    const glow = glowFraction(rock.temperatureC, R.earthGlowC, R.earthWhiteC)
+    const trails = Trails.of(this.scene)
+    trails.follow(rock.body, {
+      color: mix(0xff6a1a, 0xffe28a, glow), widthPx: rock.edgeM * PIXELS_PER_METER * 0.6, lifeMs: 220,
+    }, 60)
+    const { x, y } = rock.body.position
+    trails.emitEmbers(x, y, 1 + Math.round(glow * 2))
+    trails.emitSmoke(x, y, 1)
+  }
+
   /** Dunkle Tropfenläufe laufen an nassen Blöcken herunter. */
   private draw(): void {
     for (const rock of this.rocks) {
+      this.meteorTrail(rock)
       const g = rock.overlay
       const wet = Math.min(1, rock.wetnessKg / sandWettingThresholdKg(rock.edgeM))
       g.clear()

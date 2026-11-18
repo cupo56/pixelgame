@@ -18,3 +18,7 @@ export const vortexTickDamage = (qJ: number, q0J: number): number => {
 
 /** Wärme, die jeder gefangene Block je Tick erhält: ein Bruchteil des aktuellen Q. */
 export const vortexRockHeatJ = (qJ: number): number => Math.max(0, qJ) * COMBOS.fireVortexRockHeatFraction
+
+/** Glut des Wirbels (0 bis 1) für die Darstellung: der stärkste gefangene Feuerball bestimmt sie. */
+export const vortexFireIntensity = (fires: readonly { q: number; q0: number }[]): number =>
+  fires.reduce((max, { q, q0 }) => Math.max(max, q0 > 0 ? clamp01(q / q0) : 0), 0)
