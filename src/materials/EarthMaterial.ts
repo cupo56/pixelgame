@@ -6,6 +6,8 @@ import { REACTIONS as R } from '../config/reactions.ts'
 import { matterToMetersPerSecond, metersPerSecondToMatter } from '../config/physics.ts'
 import { damageEnemy, isEnemy } from '../combat/damage.ts'
 import { airBoostSpeedMs, wuchtDamage } from '../combat/wucht.ts'
+import { meteorImpact } from '../combos/Meteor.ts'
+import { isMeteorImpact } from '../combos/meteorRules.ts'
 import { dust } from '../effects/particles.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { hitStopOnce, impactRing } from '../effects/impact.ts'
@@ -40,6 +42,8 @@ export interface Rock extends Substance {
   damage: number
   hitTargets: Set<MatterJS.BodyType>
   inTornado: boolean
+  /** Der Meteor hat seine Wärme abgegeben; erst neue Hitze (`heat`) macht den Block wieder scharf. */
+  meteorSpent: boolean
   readonly lastBurnAt: Map<MatterJS.BodyType, number>
   /** Tropfenläufe auf nassen Blöcken. */
   readonly overlay: Phaser.GameObjects.Graphics
@@ -97,7 +101,7 @@ export class EarthMaterial {
       temperatureC: R.ambientC, massKg: body.mass, wetnessKg: 0, heatJ: 0, restingMs: 0, createdAt: now,
       expiresAt: now + ROCK_LIFETIME_MS, solidToPlayerAt: now + OWNER_GRACE_MS,
       damage: Math.round(Phaser.Math.Linear(COMBAT.earthDamage, COMBAT.chargedEarthDamage, charge)),
-      hitTargets: new Set(), inTornado: false, lastBurnAt: new Map(),
+      hitTargets: new Set(), inTornado: false, meteorSpent: false, lastBurnAt: new Map(),
       remove: () => {
         this.rocks.delete(rock)
         this.scene.matter.world?.remove(body)
@@ -123,7 +127,10 @@ export class EarthMaterial {
   /** Hitze lässt Erde glühen; ab der Schmelztemperatur wird der Block zu einem Metallklumpen. */
   private heat(rock: Rock, heatJ: number): void {
     if (!this.rocks.has(rock)) return
-    rock.temperatureC = Math.min(R.solidMaxC, rock.temperatureC + solidHeatingK(heatJ, 1, rock.massKg))
+    const deltaK = solidHeatingK(heatJ, 1, rock.massKg)
+    rock.temperatureC = Math.min(R.solidMaxC, rock.temperatureC + deltaK)
+    // Neue Wärme macht einen verbrauchten Meteor wieder scharf.
+    if (deltaK > 0) rock.meteorSpent = false
     this.recolor(rock)
     if (rock.temperatureC >= R.sandMeltC && !rock.inTornado) this.system.materials.metal?.fromEarth(rock)
   }
@@ -281,6 +288,11 @@ export class EarthMaterial {
       if (earth.charge >= 0.5) hitStopOnce(this.scene, 35)
     }
     const energy = 0.5 * body.mass * speedMs ** 2
+    // Meteor: ein glühender, schneller Block explodiert beim Einschlag (einmal je Erhitzung).
+    if (isMeteorImpact({
+      temperatureC: earth.temperatureC, energyJ: energy, spent: earth.meteorSpent,
+      otherIsPlayer: other.label === 'player', otherIsSensor: other.isSensor,
+    })) meteorImpact(this.system, earth, { x: body.position.x, y: body.position.y }, other, other.isStatic)
     dust(this.scene, body.position.x, body.position.y, Math.min(32, Math.round(energy / 900) + 6), Math.min(150, speedMs * 10))
     if (other.isStatic) {
       // Risse und Geröll an der Aufprallstelle.

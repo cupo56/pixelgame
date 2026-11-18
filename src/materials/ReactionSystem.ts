@@ -97,11 +97,14 @@ export class ReactionSystem {
    * `direct` ist der Körper, an dem die Explosion stattfand: er bekommt die volle Wärme, ebenso jeder Stoff,
    * dessen Körper die Flamme berührt (innerhalb `contactPx` um das Zentrum, z. B. Block neben dem Bodentreffer).
    */
-  heatArea(center: { x: number; y: number }, radiusM: number, heatJ: number, direct?: MatterJS.BodyType, contactPx = 0): void {
+  heatArea(center: { x: number; y: number }, radiusM: number, heatJ: number, direct?: MatterJS.BodyType, contactPx = 0,
+    exclude?: Substance): void {
     const directSubstance = direct ? this.registry.get(direct) : undefined
     const radiusPx = metersToPixels(radiusM)
     const ctx = this.context(center)
     for (const substance of this.registry.all()) {
+      // `exclude` ist der Stoff, der die Explosion selbst auslöst (Meteor): er heizt sich nicht mit.
+      if (substance === exclude) continue
       const handler = this.heatHandlers.get(substance.kind)
       if (!handler) continue
       const touching = contactPx > 0 && Phaser.Math.Distance.Between(center.x, center.y,

@@ -118,13 +118,23 @@ export class FireMaterial {
     return fireball
   }
 
-  /** Explosion: Schaden, Radius und Impuls folgen dem aktuellen Wärmeinhalt. */
+  /** Explosion eines Feuerballs: wie `detonate` am Ort des Balls, danach ist der Ball verbraucht. */
   explode(substance: Substance, scorch = false, direct?: MatterJS.BodyType): void {
     const fireball = substance as Fireball
     if (!this.fireballs.has(fireball)) return
-    const charge = fireChargeFraction(fireball.heatJ)
     const { x, y } = fireball.body.position
-    const radius = this.radiusPx(fireball.heatJ)
+    this.detonate({ x, y }, fireball.heatJ, scorch, direct)
+    this.system.remove(fireball)
+  }
+
+  /**
+   * Explosion an einem Punkt: Schaden, Radius und Impuls folgen dem Wärmeinhalt `heatJ`.
+   * Wird vom Feuerball und vom Meteor genutzt. `exclude` heizt der Stoff nicht mit, der sie auslöst.
+   */
+  detonate(point: { x: number; y: number }, heatJ: number, scorch = false, direct?: MatterJS.BodyType, exclude?: Substance): void {
+    const charge = fireChargeFraction(heatJ)
+    const { x, y } = point
+    const radius = this.radiusPx(heatJ)
     flash(this.scene, x, y, radius * 2.5)
     shockwaveRing(this.scene, x, y, radius, radius * 3 + charge * 30, 220, 0xffd27a)
     burst(this.scene, x, y, FIRE_COLORS, Math.round(40 + charge * 60), 160 + charge * 100)
@@ -136,8 +146,7 @@ export class FireMaterial {
       Math.round(Phaser.Math.Linear(COMBAT.fireDamage, COMBAT.chargedFireDamage, charge)))
     screenShake(this.scene, BLAST_SHAKE * (1 + charge * 0.65), 160)
     // Die Explosion heizt Stoffe im Radius (Erde glüht, Sand schmilzt, Metall erhitzt).
-    this.system.heatArea({ x, y }, BLAST_RADIUS_M + charge * 1.5, fireball.heatJ, direct, radius * 1.5)
-    this.system.remove(fireball)
+    this.system.heatArea({ x, y }, BLAST_RADIUS_M + charge * 1.5, heatJ, direct, radius * 1.5, exclude)
   }
 
   /** Erlöschen im Wasser: nur Dampf, keine Druckwelle. */
