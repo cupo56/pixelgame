@@ -12,20 +12,11 @@ export const wallGrowthProgress = (elapsedMs: number, growMs: number): number =>
 
 export const wallHeightAt = (progress: number, maxHeightM: number): number => clamp01(progress) * maxHeightM
 
-/**
- * Sichtbarer Anteil einer Lage (0 bis 1): Die unterste Lage steigt zuerst, jede weitere startet später,
- * dadurch steigt das Mauerwerk Lage für Lage aus dem Boden.
- */
-export const courseVisible = (progress: number, courseIndex: number, courses: number): number => {
-  const stagger = 0.55
-  const start = (courseIndex / Math.max(1, courses - 1)) * stagger
-  return clamp01((progress - start) / (1 - stagger))
-}
-
-/** Abstand der Mauer zum Spieler in m: zur Maus hin, auf [min, max] geklemmt. */
-export const wallDistanceM = (mouseOffsetM: number, minM: number, maxM: number, fallbackSide = 1): number => {
-  const side = mouseOffsetM === 0 ? fallbackSide : Math.sign(mouseOffsetM)
-  return side * Math.min(maxM, Math.max(minM, Math.abs(mouseOffsetM)))
+/** Zielposition der Mauer: Mausposition, waagerecht auf [min, max] Abstand zum Spieler geklemmt. */
+export const wallPlacementX = (mouseX: number, playerX: number, minPx: number, maxPx: number, facing = 1): number => {
+  const dx = mouseX - playerX
+  const side = dx === 0 ? (Math.sign(facing) || 1) : Math.sign(dx)
+  return playerX + side * Math.min(maxPx, Math.max(minPx, Math.abs(dx)))
 }
 
 /** Wurfrichtung (normiert): Neigung zur Waagerechten höchstens `maxDeg`; ohne seitliche Komponente gilt `facing`. */

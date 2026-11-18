@@ -1,16 +1,17 @@
 import type Phaser from 'phaser'
 import { mix } from '../materials/MetalMaterial.ts'
-import { courseVisible } from './wallRules.ts'
 
 export interface WallDrawOptions {
   /** Mittelpunkt der Mauer (x) und Bodenlinie (y); unterhalb der Bodenlinie wird nichts gezeichnet. */
   x: number
   groundY: number
   widthPx: number
+  /** Sichtbare Höhe über der Bodenlinie. */
   heightPx: number
-  courses: number
-  /** Wachsfortschritt 0..1: bestimmt, wie weit jede Lage aus dem Boden ist. */
-  progress: number
+  /** Höhe einer Steinlage in Pixeln. */
+  courseHPx: number
+  /** Zittern 0..1 (beim Aufsteigen). */
+  tremor: number
   /** Versinken 0..1: schiebt die ganze Mauer nach unten in den Boden. */
   sink: number
   /** Haltbarkeit 0..1, steuert Risse und Ausbrüche. */
@@ -33,10 +34,13 @@ const hash = (a: number, b: number): number => {
 /** Stein-Grenzen je Lage im Läuferverband: gerade Lagen halbiert, ungerade mit Halbsteinen an den Rändern. */
 const bonds = (course: number): number[] => (course % 2 === 0 ? [0, 0.5, 1] : [0, 0.25, 0.75, 1])
 
-/** Mauerwerk aus versetzten Steinlagen, an der Bodenlinie abgeschnitten. */
+/**
+ * Mauerwerk aus versetzten Steinlagen. Das Muster hängt starr an der Oberkante und wird an der Bodenlinie
+ * abgeschnitten: wächst die Höhe, schiebt sich das ganze Mauerwerk aus dem Boden.
+ */
 export const drawWall = (g: Phaser.GameObjects.Graphics, o: WallDrawOptions): void => {
   g.clear()
-  const courseH = o.heightPx / o.courses
+  const courseH = o.courseHPx
   const left = o.x - o.widthPx / 2
   const clipY = o.groundY
   const fill = (x: number, y: number, w: number, h: number, color: number, alpha = 1): void => {
@@ -44,13 +48,11 @@ export const drawWall = (g: Phaser.GameObjects.Graphics, o: WallDrawOptions): vo
     if (bottom <= y || w <= 0) return
     g.fillStyle(color, alpha).fillRect(Math.round(x), Math.round(y), Math.round(w), Math.max(1, Math.round(bottom - y)))
   }
-  for (let i = 0; i < o.courses; i++) {
-    const visible = courseVisible(o.progress, i, o.courses)
-    if (visible <= 0) continue
-    const rise = (1 - visible) * (i + 1) * courseH
-    const wobble = visible < 1 ? Math.sin(o.seconds * 55 + i * 2.3) * 1.2 * (1 - visible) : 0
-    const bottomY = o.groundY - i * courseH + rise + o.sink * o.heightPx
-    const topY = bottomY - courseH
+  const wallTop = o.groundY - o.heightPx + o.sink * o.heightPx
+  for (let i = 0; wallTop + i * courseH < clipY; i++) {
+    const topY = wallTop + i * courseH
+    const bottomY = topY + courseH
+    const wobble = o.tremor > 0 ? Math.sin(o.seconds * 55 + i * 2.3) * 1.2 * o.tremor : 0
     const edges = bonds(i)
     for (let k = 0; k < edges.length - 1; k++) {
       const x0 = left + edges[k] * o.widthPx + wobble
@@ -58,7 +60,7 @@ export const drawWall = (g: Phaser.GameObjects.Graphics, o: WallDrawOptions): vo
       const tone = hash(i, k)
       const base = mix(o.color, tone > 0.5 ? LIGHT : DARK, 0.06 + tone * 0.1)
       // Oberste Lage: unregelmäßige Oberkante wie bei einer gewachsenen Mauer.
-      const notch = i === o.courses - 1 ? Math.round(hash(k, 7) * 3) : 0
+      const notch = i === 0 ? Math.round(hash(k, 7) * 3) : 0
       const top = topY + notch
       fill(x0, top, w, bottomY - top, MORTAR)
       fill(x0 + 1, top + 1, w - 2, bottomY - top - 2, base)
@@ -75,7 +77,7 @@ export const drawWall = (g: Phaser.GameObjects.Graphics, o: WallDrawOptions): vo
 /** Risse und Ausbrüche wachsen mit dem Schaden; Linien enden an der Bodenlinie. */
 const drawDamage = (g: Phaser.GameObjects.Graphics, o: WallDrawOptions, courseH: number, left: number, clipY: number): void => {
   const damage = 1 - Math.max(0, Math.min(1, o.health))
-  if (damage <= 0.02 || o.progress < 1) return
+  if (damage <= 0.02 || o.tremor > 0) return
   const cracks = Math.floor(damage * 7) + 1
   g.lineStyle(1, DARK, 0.9)
   for (let c = 0; c < cracks; c++) {

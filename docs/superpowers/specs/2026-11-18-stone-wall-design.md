@@ -20,13 +20,18 @@ bestehenden Kombos ohne Sonderfall (Luftstoß, Feuer → Metall, Wasser → Sand
 
 ## Mauer
 
-**Form:** eine breite Wand, nicht eine Säule: 1,2 m breit, 2,5 m hoch, Tiefe 1,5 m (Masse etwa 8 t). Die Wand ist
+**Form:** eine breite Wand, nicht eine Säule: 1,2 m breit, 1 bis 5 m hoch je nach Aufladung, Tiefe 1,5 m (Masse bis etwa 16 t). Die Wand ist
 dicker als eine normale Mauer, aber klar rechteckig, mit gerader Oberkante und leicht unregelmäßigen Rändern.
 
 **Bändigen (RMB halten, nur Erdmodus, keine Mauer vorhanden):**
-- Sie steigt zwischen 2 m und 6 m vor dem Spieler (in Richtung Maus) aus dem Boden. Reichweite und Platzprüfung wie
-  bei Erdblöcken (Boden muss tragen, freie Fläche, keine Überlappung mit Spieler). Sonst startet nichts.
-- Sie wächst in 600 ms bis zur Höhe 2,5 m; Loslassen beendet das Wachsen (mindestens 1 m, sonst bricht sie ab).
+- **Zielen am Boden:** Die Mauer entsteht am Boden unter der Maus (auch wenn die Maus in der Luft ist: der nächste
+  tragende Boden). Ein Zielzeichen (Fußabdruck mit Pfeilen und 1-m-Umriss) zeigt die Stelle, rot wenn dort nichts
+  möglich ist. Reichweite 10 m waagerecht (weiter weg wird auf 10 m begrenzt), mindestens 1,5 m Abstand zum Spieler,
+  Boden höchstens 5 m über oder unter den Füßen. Der Platz muss frei sein. Die Stelle wird beim Drücken festgelegt.
+  Die Reichweite bleibt bewusst begrenzt (Balance, Sicht), ist aber groß genug, um die Mauer weit vor sich zu setzen.
+- **Aufladen:** Je länger gehalten, desto höher: 1 m (Mindesthöhe) bis 5 m bei 1,6 s, also doppelt so hoch wie die
+  erste Fassung (2,5 m nach etwa 0,8 s). Voll geladen steht die Mauer von selbst. Stößt sie oben an ein Hindernis,
+  bleibt sie in der letzten freien Höhe stehen. Loslassen unter 1 m bricht ab.
 - Nur eine Mauer gleichzeitig; eine neue ersetzt die alte (alte zerfällt). Abklingzeit 4 s nach Zerfall oder Tritt.
 
 **Stehen:**
@@ -50,8 +55,8 @@ dicker als eine normale Mauer, aber klar rechteckig, mit gerader Oberkante und l
 - **Mauerwerk:** Steinquader in versetzten Lagen (Läufer-Verband), 5 Lagen zu je 2 bis 3 Steinen, helle Mörtelfugen,
   Kanten heller oben, dunkler unten, einzelne Ausbrüche. Farbe wie die Erdblöcke, damit sie als Erde lesbar bleibt.
   Eine unsichtbare Rectangle bleibt Träger für `Rock.shape`, eine eigene Graphics zeichnet die Steine.
-- **Aufsteigen (eigene Animation):** Die Lagen steigen nacheinander und leicht versetzt aus dem Boden, jede Lage mit
-  eigenem Zittern; alles wird an der Bodenlinie abgeschnitten (nichts erscheint unter dem Boden). Beim Start Risslinie
+- **Aufsteigen (eigene Animation):** Das Mauerwerk schiebt sich starr aus dem Boden (Muster hängt an der Oberkante,
+  alles wird an der Bodenlinie abgeschnitten), mit Zittern der Lagen, solange gehalten wird. Beim Start Risslinie
   und Staubfontäne am Boden, beim Wachsen Erdkrümel, am Ende ein kurzer Erdstoß mit Staubring.
 - **Schaden:** Risslinien und Ausbrüche nehmen mit sinkender Haltbarkeit zu, kleine Brocken lösen sich bei Treffern.
 - **Tritt:** Staubwelle läuft vom Fuß zur Mauer, beim Gleiten Staubspur am Boden, beim Aufprall Brockenschauer.
@@ -80,8 +85,8 @@ Eigene Zustände in `StickFigureView`, getrennt von den Handposen der anderen El
 
 ## Stellwerte
 
-Neue Datei `src/config/wall.ts`: wallWidthM 1.2, wallHeightM 2.5, wallDepthM 1.5, wallGrowMs 600, wallMinDistanceM 2,
-wallMaxDistanceM 6, wallHealth 60, wallLifetimeMs 15000, wallCooldownMs 4000, kickDelayMs 150, throwSpeedMs 14,
+Neue Datei `src/config/wall.ts`: widthM 1.2, maxHeightM 5, depthM 1.5, chargeMs 1600, minDistanceM 1.5, reachM 10,
+verticalReachM 5, courseM 0.5, wallHealth 60, wallLifetimeMs 15000, wallCooldownMs 4000, kickDelayMs 150, throwSpeedMs 14,
 throwAngleDeg 35, throwGravityDelayMs 600. Geschosse in `src/config/combat.ts`: shotIntervalMinMs 3000,
 shotIntervalMaxMs 4500, shotRangeM 14, shotSpeedMs 9, shotDamage 6, shotLifetimeMs 3000.
 

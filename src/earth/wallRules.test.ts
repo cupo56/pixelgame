@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  clampThrowDirection, courseVisible, nextShotDelayMs, wallDistanceM, wallEquivalentEdgeM, wallGrowthProgress,
-  wallHeightAt, wallMassKg, wallTakeDamage,
+  clampThrowDirection, nextShotDelayMs, wallEquivalentEdgeM, wallGrowthProgress, wallHeightAt, wallMassKg,
+  wallPlacementX, wallTakeDamage,
 } from './wallRules.ts'
 
 describe('Wachsen', () => {
@@ -19,20 +19,19 @@ describe('Wachsen', () => {
     expect(wallHeightAt(0.4, 2.5)).toBeCloseTo(1)
   })
 
-  it('Lagen steigen nacheinander: die erste früher als die letzte', () => {
-    expect(courseVisible(0.2, 0, 5)).toBeGreaterThan(courseVisible(0.2, 4, 5))
-    expect(courseVisible(0, 0, 5)).toBe(0)
-    for (let i = 0; i < 5; i++) expect(courseVisible(1, i, 5)).toBe(1)
+  it('gehaltene Aufladung: die halbe Höhe ist nach etwa der halben Zeit erreicht', () => {
+    expect(wallHeightAt(wallGrowthProgress(800, 1600), 5)).toBeCloseTo(2.5)
+    expect(wallHeightAt(wallGrowthProgress(1600, 1600), 5)).toBe(5)
   })
 })
 
 describe('Platzierung', () => {
-  it('Abstand wird auf 2 bis 6 m geklemmt, Vorzeichen zeigt zur Maus', () => {
-    expect(wallDistanceM(0.5, 2, 6)).toBe(2)
-    expect(wallDistanceM(4, 2, 6)).toBe(4)
-    expect(wallDistanceM(20, 2, 6)).toBe(6)
-    expect(wallDistanceM(-20, 2, 6)).toBe(-6)
-    expect(wallDistanceM(0, 2, 6)).toBe(2)
+  it('Zielposition folgt der Maus, Abstand auf [min, max] geklemmt', () => {
+    expect(wallPlacementX(110, 100, 48, 320)).toBe(148)
+    expect(wallPlacementX(300, 100, 48, 320)).toBe(300)
+    expect(wallPlacementX(900, 100, 48, 320)).toBe(420)
+    expect(wallPlacementX(-900, 100, 48, 320)).toBe(-220)
+    expect(wallPlacementX(100, 100, 48, 320, -1)).toBe(52)
   })
 })
 

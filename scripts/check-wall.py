@@ -21,10 +21,10 @@ def aim(page: Page, wx: float, wy: float) -> None:
     page.mouse.move(s['x'], s['y'])
 
 
-def grow_wall(page: Page, hold_ms: int = 900) -> None:
-    """Erdmodus, Maus 4 m vor dem Spieler, rechte Taste halten und loslassen."""
+def grow_wall(page: Page, hold_ms: int = 900, dx: float = 130, dy: float = 0) -> None:
+    """Erdmodus, Maus dx/dy Pixel vom Spieler entfernt, rechte Taste halten und loslassen."""
     me = ev(page, '() => window.player()')
-    aim(page, me['x'] + 130, me['y'])
+    aim(page, me['x'] + dx, me['y'] + dy)
     page.keyboard.press('1')
     page.mouse.down(button='right')
     page.wait_for_timeout(hold_ms)
@@ -61,13 +61,13 @@ def scene_wall(browser: Browser) -> None:
     page.wait_for_timeout(300)
     assert ev(page, WALL_STATE) == 'growing', ev(page, WALL_STATE)
     page.screenshot(path=str(OUTPUT / 'wand-wachsen.png'))
-    page.wait_for_timeout(700)
+    page.wait_for_timeout(1500)
     page.mouse.up(button='right')
     page.wait_for_timeout(200)
     box = wall_box(page)
     assert ev(page, WALL_STATE) == 'standing' and box, ev(page, WALL_STATE)
-    assert abs(box['h'] - 80) < 2 and abs(box['w'] - 38.4) < 2, box
-    assert box['mass'] > 5000, box
+    assert abs(box['h'] - 160) < 3 and abs(box['w'] - 38.4) < 2, box
+    assert box['mass'] > 15000, box
     assert 64 <= box['x'] - me['x'] <= 200, (box['x'], me['x'])
     page.screenshot(path=str(OUTPUT / 'wand-steht.png'))
     print(f"Wand: bändigt in Aufstiegsanimation, steht {box['w']:.0f}x{box['h']:.0f} px, {box['mass']:.0f} kg, "
@@ -79,6 +79,37 @@ def scene_wall(browser: Browser) -> None:
     pushed = wall_box(page)
     assert pushed['vx'] > 3, pushed
     print(f"Luft: Stoß beschleunigt die Wand ({pushed['vx'] * 60 / 32:.1f} m/s).", flush=True)
+    assert errors == [], errors
+    page.close()
+
+
+def scene_aufladung_ziel(browser: Browser) -> None:
+    """Je länger gehalten, desto höher; die Mauer entsteht am Boden unter der Maus (auch weit weg und aus der Luft anvisiert)."""
+    page, errors = new_game(browser)
+    park_enemies(page)
+    e0 = ev(page, '() => enemyPos(0)')
+    place(page, e0['x'] - 250, 871)
+    me = ev(page, '() => window.player()')
+    heights = {}
+    for label, hold in (('kurz', 450), ('mittel', 850), ('voll', 1800)):
+        # Maus 8,75 m entfernt und 3 m über dem Boden: die Mauer steht trotzdem unter der Maus am Boden.
+        grow_wall(page, hold, dx=280, dy=-96)
+        box = wall_box(page)
+        assert box and ev(page, WALL_STATE) == 'standing', (label, ev(page, WALL_STATE))
+        assert abs(box['x'] - (me['x'] + 280)) < 3, (label, box['x'], me['x'] + 280)
+        heights[label] = box['h']
+        ev(page, '() => { testScene.elements.wall.lifetimeEndsAt = 0 }')
+        page.wait_for_function("() => testScene.elements.wall.currentState === 'idle'", timeout=15000)
+        ev(page, '() => { testScene.elements.wall.cooldownEndsAt = 0 }')
+    assert heights['kurz'] < heights['mittel'] < heights['voll'], heights
+    assert abs(heights['voll'] - 160) < 3 and heights['kurz'] >= 32, heights
+    print(f"Aufladung: Höhen {heights['kurz']:.0f} / {heights['mittel']:.0f} / {heights['voll']:.0f} px (kurz / mittel / voll = 5 m), "
+          "Wand steht 8,75 m weit unter der Maus am Boden.", flush=True)
+    # Reichweite: weiter weg als 10 m wird auf 10 m geklemmt.
+    grow_wall(page, 700, dx=450, dy=0)
+    box = wall_box(page)
+    assert box and abs(box['x'] - (me['x'] + 320)) < 3, (box and box['x'], me['x'] + 320)
+    print('Reichweite: Ziel jenseits von 10 m wird auf 10 m begrenzt.', flush=True)
     assert errors == [], errors
     page.close()
 
@@ -177,7 +208,7 @@ def scene_gegner_schuss(browser: Browser) -> None:
 def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        for scene in (scene_wall, scene_schutz, scene_tritt, scene_gegner_schuss):
+        for scene in (scene_wall, scene_aufladung_ziel, scene_schutz, scene_tritt, scene_gegner_schuss):
             scene(browser)
         print('Alle Wandprüfungen bestanden.', flush=True)
         browser.close()

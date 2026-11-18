@@ -125,6 +125,8 @@ export class ElementController {
 
     const pointer = this.scene.input.activePointer
     const target = pointer.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2
+    // Erde: Zielzeichen für die Mauer am Boden unter der Maus.
+    this.wall.updateAim(this.selected.id === 'earth' ? target : undefined)
     const origin = this.player.aimAt(target, this.selected.color)
     const direction = target.clone().subtract(origin)
     if (direction.lengthSq() === 0) {

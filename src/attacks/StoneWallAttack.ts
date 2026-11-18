@@ -6,7 +6,7 @@ import { AIR_DRAG, matterToMetersPerSecond, metersPerSecondToMatter, metersToPix
 import { WALL } from '../config/wall.ts'
 import { drawWall } from '../earth/wallDraw.ts'
 import {
-  clampThrowDirection, wallDistanceM, wallEquivalentEdgeM, wallGrowthProgress, wallHeightAt, wallMassKg, wallTakeDamage,
+  clampThrowDirection, wallEquivalentEdgeM, wallGrowthProgress, wallHeightAt, wallMassKg, wallPlacementX, wallTakeDamage,
 } from '../earth/wallRules.ts'
 import { crackDecal } from '../effects/decals.ts'
 import { screenShake } from '../effects/juice.ts'
@@ -16,7 +16,8 @@ import type { ReactionSystem } from '../materials/ReactionSystem.ts'
 
 const STONE_COLORS = [0xd9c3a0, 0xb08a5a, 0x6b5a45]
 const ROCK_COLOR = 0x947653
-const GROUND_REACH_M = 1.75
+const MARKER_COLOR = 0xe0c08a
+const MARKER_INVALID = 0xd96a5c
 
 type State = 'idle' | 'growing' | 'standing' | 'kicking' | 'thrown' | 'sinking'
 
@@ -42,10 +43,12 @@ export class StoneWallAttack {
   private readonly system: ReactionSystem
   private readonly hooks: Hooks
   private readonly view: Phaser.GameObjects.Graphics
+  private readonly marker: Phaser.GameObjects.Graphics
   private state: State = 'idle'
   private placement?: Placement
   private growMs = 0
   private heightM = 0
+  private lastClearHeightM = 0
   private rock?: Rock
   private health: number = WALL.health
   private lifetimeEndsAt = 0
@@ -66,6 +69,7 @@ export class StoneWallAttack {
     this.system = system
     this.hooks = hooks
     this.view = scene.add.graphics().setDepth(5)
+    this.marker = scene.add.graphics().setDepth(6)
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.update, this)
     scene.matter.world.on(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
   }
@@ -74,7 +78,7 @@ export class StoneWallAttack {
   get isGrowing(): boolean { return this.state === 'growing' }
   /** Wachsfortschritt 0..1 für die Figur; sonst undefined. */
   get raiseProgress(): number | undefined {
-    return this.state === 'growing' ? wallGrowthProgress(this.growMs, WALL.growMs) : undefined
+    return this.state === 'growing' ? wallGrowthProgress(this.growMs, WALL.chargeMs) : undefined
   }
   /** Nur für Browserprüfungen. */
   get wallBody(): MatterJS.BodyType | undefined { return this.rock?.body }
@@ -91,7 +95,9 @@ export class StoneWallAttack {
     this.state = 'growing'
     this.growMs = 0
     this.heightM = 0
+    this.lastClearHeightM = 0
     this.nextDustAt = 0
+    this.marker.clear()
     crackDecal(this.scene, placement.x, placement.groundY, 16)
     dust(this.scene, placement.x, placement.groundY - 2, 10, 70)
     return true
@@ -114,29 +120,60 @@ export class StoneWallAttack {
     this.scene.matter.world?.off(Phaser.Physics.Matter.Events.COLLISION_START, this.onCollision, this)
     this.removeRock()
     this.view.destroy()
+    this.marker.destroy()
   }
 
+  /**
+   * Zielzeichen am Boden: zeigt, wo die Mauer entstünde (Mausposition, auf den Boden darunter gelegt).
+   * Nur im Erdmodus und solange keine Mauer steht oder wächst; `target` undefined blendet es aus.
+   */
+  updateAim(target?: Phaser.Math.Vector2): void {
+    this.marker.clear()
+    if (!target || this.state !== 'idle') return
+    const place = this.findPlacement(target)
+    const width = metersToPixels(WALL.widthM)
+    const ready = this.scene.time.now >= this.cooldownEndsAt
+    const x = place?.x ?? target.x
+    const y = place?.groundY ?? target.y
+    const valid = !!place && ready
+    const color = valid ? MARKER_COLOR : MARKER_INVALID
+    const g = this.marker
+    if (!place) {
+      g.lineStyle(1, color, 0.7).strokeCircle(target.x, target.y, 4)
+      return
+    }
+    // Fußabdruck der Mauer mit Pfeilen nach oben und einem Geisterumriss von 1 m Höhe; blinkt leicht.
+    const pulse = 0.6 + 0.25 * Math.sin(this.scene.time.now * 0.008)
+    g.lineStyle(1, color, 0.3 * pulse).strokeRect(Math.round(x - width / 2), Math.round(y - metersToPixels(WALL.minHeightM)), Math.round(width), metersToPixels(WALL.minHeightM))
+    g.lineStyle(2, color, pulse).lineBetween(x - width / 2, y - 1, x + width / 2, y - 1)
+    g.lineStyle(1, color, pulse)
+    g.lineBetween(x - width / 2, y - 1, x - width / 2, y - 7).lineBetween(x + width / 2, y - 1, x + width / 2, y - 7)
+    for (const dx of [-width / 4, width / 4]) {
+      g.lineBetween(x + dx, y - 4, x + dx, y - 12).lineBetween(x + dx - 3, y - 9, x + dx, y - 12).lineBetween(x + dx + 3, y - 9, x + dx, y - 12)
+    }
+  }
+
+  /** Boden unter der Maus: nächste tragende Fläche im Radius um den Spieler, frei von Hindernissen. */
   private findPlacement(target: Phaser.Math.Vector2): Placement | undefined {
     const vertices = this.playerBody.vertices
     if (!vertices?.length) return undefined
     const footY = Math.max(...vertices.map((v) => v.y))
-    const offsetM = (target.x - this.playerBody.position.x) / metersToPixels(1)
-    const x = this.playerBody.position.x + metersToPixels(wallDistanceM(offsetM, WALL.minDistanceM, WALL.maxDistanceM))
+    const facing = Math.sign(target.x - this.playerBody.position.x) || 1
+    const clampedX = Phaser.Math.Clamp(target.x, this.playerBody.position.x - metersToPixels(WALL.reachM), this.playerBody.position.x + metersToPixels(WALL.reachM))
+    const x = wallPlacementX(clampedX, this.playerBody.position.x, metersToPixels(WALL.minDistanceM), metersToPixels(WALL.reachM), facing)
     const width = metersToPixels(WALL.widthM)
     let best: Placement | undefined
-    let bestDelta = Infinity
+    let bestScore = Infinity
     for (const body of this.scene.matter.world.getAllBodies()) {
       if (!body.isStatic || body.isSensor || body.label !== 'terrain') continue
       const { min, max } = body.bounds
       if (x - width / 2 < min.x + 1 || x + width / 2 > max.x - 1) continue
-      if (min.y < footY - metersToPixels(0.5) || min.y > footY + metersToPixels(GROUND_REACH_M)) continue
-      const delta = Math.abs(min.y - footY)
-      if (delta < bestDelta && this.isClear({ x, groundY: min.y, terrain: body }, WALL.heightM)) {
-        best = { x, groundY: min.y, terrain: body }
-        bestDelta = delta
-      }
+      if (Math.abs(min.y - footY) > metersToPixels(WALL.verticalReachM)) continue
+      // Der Boden, der der Maus senkrecht am nächsten liegt (Maus in der Luft: Boden darunter bevorzugt).
+      const score = Math.abs(min.y - target.y) + (min.y < target.y - metersToPixels(1) ? 40 : 0)
+      if (score < bestScore) { best = { x, groundY: min.y, terrain: body }; bestScore = score }
     }
-    return best
+    return best && this.isClear(best, WALL.minHeightM) ? best : undefined
   }
 
   /** Frei von Spieler, Gegnern, Erde, Metall und anderem Gelände über der Wuchsfläche. */
@@ -171,15 +208,23 @@ export class StoneWallAttack {
     const place = this.placement
     if (!place) return
     this.growMs += dt
-    const progress = wallGrowthProgress(this.growMs, WALL.growMs)
-    this.heightM = wallHeightAt(progress, WALL.heightM)
-    if (this.heightM >= 0.3 && !this.isClear(place, this.heightM)) {
-      this.abortGrowing()
+    const progress = wallGrowthProgress(this.growMs, WALL.chargeMs)
+    const wanted = wallHeightAt(progress, WALL.maxHeightM)
+    if (wanted >= 0.3 && !this.isClear(place, wanted)) {
+      // Decke oder Hindernis: die Mauer bleibt in der letzten freien Höhe stehen (oder entfällt, wenn sie zu niedrig wäre).
+      if (this.lastClearHeightM < WALL.minHeightM) {
+        this.abortGrowing()
+        return
+      }
+      this.heightM = this.lastClearHeightM
+      this.finishGrowing()
       return
     }
+    this.heightM = wanted
+    this.lastClearHeightM = wanted
     drawWall(this.view, {
-      x: place.x, groundY: place.groundY, widthPx: metersToPixels(WALL.widthM), heightPx: metersToPixels(WALL.heightM),
-      courses: WALL.courses, progress, sink: 0, health: 1, color: ROCK_COLOR, seconds,
+      x: place.x, groundY: place.groundY, widthPx: metersToPixels(WALL.widthM), heightPx: metersToPixels(wanted),
+      courseHPx: metersToPixels(WALL.courseM), tremor: 1, sink: 0, health: 1, color: ROCK_COLOR, seconds,
     })
     if (now >= this.nextDustAt) {
       this.nextDustAt = now + 90
@@ -277,7 +322,7 @@ export class StoneWallAttack {
     const height = body.bounds.max.y - body.bounds.min.y
     drawWall(this.view, {
       x: body.position.x, groundY: body.bounds.max.y, widthPx: width, heightPx: height,
-      courses: WALL.courses, progress: 1, sink: 0, health: this.health / WALL.health,
+      courseHPx: metersToPixels(WALL.courseM), tremor: 0, sink: 0, health: this.health / WALL.health,
       color: rock.shape.fillColor, seconds,
     })
     if (this.state === 'thrown' && now - this.thrownAt > 100 && Math.random() < 0.5) {
@@ -308,7 +353,7 @@ export class StoneWallAttack {
     this.health = result.health
     this.lifetimeEndsAt = Math.max(this.lifetimeEndsAt, this.scene.time.now + WALL.lifetimeMs)
     const { x, y } = rock.body.position
-    burst(this.scene, x + (Math.random() - 0.5) * metersToPixels(WALL.widthM), y + (Math.random() - 0.5) * metersToPixels(WALL.heightM) * 0.6, STONE_COLORS, 5, 45)
+    burst(this.scene, x + (Math.random() - 0.5) * metersToPixels(WALL.widthM), y + (Math.random() - 0.5) * (rock.body.bounds.max.y - rock.body.bounds.min.y) * 0.6, STONE_COLORS, 5, 45)
     screenShake(this.scene, 0.002, 60)
     if (result.broken) this.shatter()
   }
@@ -364,7 +409,7 @@ export class StoneWallAttack {
     const t = Math.min(1, this.sinkMs / WALL.sinkMs)
     drawWall(this.view, {
       x: pose.x, groundY: pose.groundY, widthPx: metersToPixels(WALL.widthM), heightPx: pose.heightPx,
-      courses: WALL.courses, progress: 1, sink: t * t, health: this.health / WALL.health, color: pose.color, seconds,
+      courseHPx: metersToPixels(WALL.courseM), tremor: 0, sink: t * t, health: this.health / WALL.health, color: pose.color, seconds,
     })
     if (Math.random() < 0.35) dust(this.scene, pose.x + (Math.random() - 0.5) * metersToPixels(WALL.widthM), pose.groundY - 1, 2, 35)
     if (t >= 1) {

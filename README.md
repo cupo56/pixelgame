@@ -133,7 +133,7 @@ Die Elemente lassen sich kombinieren, indem man ihre **Rollen übereinanderlegt*
 
 ## Steinmauer und Gegner-Geschosse
 
-Mit **Erde** gewählt bändigt die **rechte Maustaste** eine Steinmauer (1,2 m breit, 2,5 m hoch, etwa 8 t). **Halten** lässt sie 2 bis 6 m vor dir Lage für Lage aus dem Boden steigen, du stehst dabei im tiefen Stand und hebst die Hände mit. Loslassen beendet das Wachsen (mindestens 1 m Höhe). Ein **Rechtsklick** auf die stehende Mauer tritt sie mit dem Fuß zur Maus: Sie gleitet mit 14 m/s los (Neigung höchstens ±35°), macht Wucht-Schaden und bricht bei hartem Aufprall. Nur eine Mauer gleichzeitig, danach 4 s Abklingzeit.
+Mit **Erde** gewählt bändigt die **rechte Maustaste** eine Steinmauer (1,2 m breit, bis 5 m hoch, bis etwa 16 t). Du **zielst mit der Maus auf den Boden**, dort zeigt ein Zeichen die Stelle (bis 10 m weit, auch wenn die Maus in der Luft ist). **Halten** lässt sie aus dem Boden steigen: je länger, desto höher (1 m bis 5 m bei 1,6 s). Du stehst dabei im tiefen Stand und hebst die Hände mit; Loslassen beendet das Wachsen. Ein **Rechtsklick** auf die stehende Mauer tritt sie mit dem Fuß zur Maus: Sie gleitet mit 14 m/s los (Neigung höchstens ±35°), macht Wucht-Schaden und bricht bei hartem Aufprall. Nur eine Mauer gleichzeitig, danach 4 s Abklingzeit.
 
 Die Mauer hat 60 Haltbarkeit, jedes Gegner-Geschoss zieht seinen Schaden ab, Risse zeigen den Zustand. Ohne Treffer versinkt sie nach 15 s. Sie ist ein normaler Erd-Stoff: Ein Luftstoß schleudert sie, Feuer macht sie zu Metall, Wasser lässt sie zu Sand zerfallen.
 

@@ -74,7 +74,7 @@ export const REACTIONS = {
    * Spielabstraktion: Erdblöcke werden leicht zu Metall. Temperaturanstieg = Q · Faktor / Kantenlänge (m).
    * Der kleine Block (0,5 m) schmilzt schon am kleinsten Feuerball, der 1,5-m-Block braucht im Spiel 3 bis 4 (Abstand und Abkühlung kosten Wärme).
    */
-  earthMetalKmPerJ: 3.6e-3,
+  earthMetalKmPerJ: 3.9e-3,
   /** Obergrenze für Festkörpertemperaturen (darüber würde Material verdampfen; hält Abkühlzeiten lesbar). */
   solidMaxC: 2500,
   metalDensityKgM3: 7800,
